@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Email, Calendar & Slack — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .section-block { max-width: 720px; margin-bottom: 36px; }
+  .provider-card {
+    border: 1px solid var(--olive-200); border-radius: 12px; padding: 18px 20px; margin-bottom: 12px;
+    background: #fff; display: flex; justify-content: space-between; align-items: center;
+  }
+  .provider-name { font-weight: 700; font-size: 14.5px; margin-bottom: 3px; }
+  .provider-status { font-size: 12px; color: var(--ink-500); }
+  .provider-status.connected { color: var(--success); font-weight: 600; }
+
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(36,31,24,0.4); align-items: center; justify-content: center; z-index: 50; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 26px; width: 420px; max-width: 90vw; }
+  .modal input { width: 100%; padding: 10px 12px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="integrations"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Email, Calendar &amp; Slack</div>
+      <div class="page-sub">Bring your existing inbox and calendar in, and let your team reach Athena from Slack.</div>
+
+      <div class="section-block">
+        <h3 style="font-size:16px; margin-bottom:12px;">Email &amp; Calendar</h3>
+        <div class="provider-card">
+          <div>
+            <div class="provider-name">Google (Gmail + Calendar)</div>
+            <div class="provider-status" id="google-status">Checking…</div>
+          </div>
+          <button class="btn btn-primary" id="connect-google-btn">Connect</button>
+        </div>
+        <div class="provider-card">
+          <div>
+            <div class="provider-name">Microsoft (Outlook Mail + Calendar)</div>
+            <div class="provider-status" id="microsoft-status">Checking…</div>
+          </div>
+          <button class="btn btn-primary" id="connect-microsoft-btn">Connect</button>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <h3 style="font-size:16px; margin-bottom:12px;">Slack</h3>
+        <div class="page-sub" style="margin-bottom:14px;">Message Athena directly from a Slack channel, and get critical alerts posted there too.</div>
+        <div class="provider-card">
+          <div>
+            <div class="provider-name">Slack workspace</div>
+            <div class="provider-status" id="slack-status">Checking…</div>
+          </div>
+          <button class="btn btn-outline" id="connect-slack-btn">Connect</button>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <h3 style="font-size:16px; margin-bottom:6px;">SMS &amp; Phone (Twilio)</h3>
+        <div class="page-sub">Configured via environment variables (<code>TWILIO_*</code>) rather than per-user OAuth — see the setup guide. Once configured, inbound texts and calls to your business number flow into the Inbox and Voice tabs automatically.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="slack-modal-backdrop">
+  <div class="modal">
+    <h3 style="margin-bottom:14px;">Connect Slack</h3>
+    <div style="font-size:12.5px; color:var(--ink-500); margin-bottom:14px;">Create an app at api.slack.com/apps, install it to your workspace, and paste the Bot User OAuth Token below.</div>
+    <input type="text" id="slack-bot-token" placeholder="xoxb-..." />
+    <input type="text" id="slack-team-id" placeholder="Team ID (e.g. T0123ABC)" />
+    <input type="text" id="slack-channel-id" placeholder="Notification channel ID (optional)" />
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="slack-modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="slack-modal-save">Connect</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  async function loadStatus() {
+    const connections = await api.listIntegrationConnections();
+
+    const google = connections.email.find((e) => e.provider === "gmail");
+    document.getElementById("google-status").textContent = google ? `Connected — ${google.email_address}` : "Not connected";
+    document.getElementById("google-status").classList.toggle("connected", !!google);
+    setupSyncButton("connect-google-btn", google, connections.calendar.find((c) => c.provider === "google"));
+
+    const microsoft = connections.email.find((e) => e.provider === "microsoft");
+    document.getElementById("microsoft-status").textContent = microsoft ? `Connected — ${microsoft.email_address}` : "Not connected";
+    document.getElementById("microsoft-status").classList.toggle("connected", !!microsoft);
+    setupSyncButton("connect-microsoft-btn", microsoft, connections.calendar.find((c) => c.provider === "microsoft"));
+
+    document.getElementById("slack-status").textContent = connections.slack.connected ? `Connected${connections.slack.team_name ? " — " + connections.slack.team_name : ""}` : "Not connected";
+    document.getElementById("slack-status").classList.toggle("connected", connections.slack.connected);
+  }
+
+  function setupSyncButton(btnId, emailConn, calConn) {
+    const btn = document.getElementById(btnId);
+    if (!emailConn) return; // leave as "Connect", already wired to OAuth
+    btn.textContent = "Sync now";
+    btn.className = "btn btn-outline";
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = "Syncing…";
+      try {
+        const results = [];
+        if (emailConn) results.push(await api.syncEmailConnection(emailConn.id));
+        if (calConn) results.push(await api.syncCalendarConnection(calConn.id));
+        await systemAlert("Synced: " + results.map((r) => JSON.stringify(r)).join(", "));
+      } catch (e) {
+        await systemAlert(e.message);
+      }
+      btn.disabled = false;
+      btn.textContent = "Sync now";
+    };
+  }
+
+  document.getElementById("connect-google-btn").addEventListener("click", async () => {
+    const { authorize_url } = await api.googleAuthorizeUrl();
+    window.location.href = authorize_url;
+  });
+  document.getElementById("connect-microsoft-btn").addEventListener("click", async () => {
+    const { authorize_url } = await api.microsoftAuthorizeUrl();
+    window.location.href = authorize_url;
+  });
+
+  document.getElementById("connect-slack-btn").addEventListener("click", () => {
+    document.getElementById("slack-modal-backdrop").classList.add("open");
+  });
+  document.getElementById("slack-modal-cancel").addEventListener("click", () => {
+    document.getElementById("slack-modal-backdrop").classList.remove("open");
+  });
+  document.getElementById("slack-modal-save").addEventListener("click", async () => {
+    const bot_token = document.getElementById("slack-bot-token").value.trim();
+    const team_id = document.getElementById("slack-team-id").value.trim();
+    const notification_channel_id = document.getElementById("slack-channel-id").value.trim() || null;
+    if (!bot_token || !team_id) return await systemAlert("Bot token and Team ID are required.");
+
+    await api.connectSlack({ bot_token, team_id, notification_channel_id });
+    document.getElementById("slack-modal-backdrop").classList.remove("open");
+    loadStatus();
+  });
+
+  loadStatus();
+</script>
+</body>
+</html>

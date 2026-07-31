@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Dashboard — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .admin-body { padding: 32px; max-width: 1200px; margin: 0 auto; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { padding: 20px; }
+  .stat-value { font-family: var(--font-display); font-size: 28px; }
+  .stat-value.positive { color: var(--success); }
+  .stat-value.negative { color: var(--danger); }
+  .stat-label { font-size: 12px; color: var(--ink-500); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+  .chart-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .chart-card { padding: 20px; }
+  .chart-card h3 { font-size: 14px; margin-bottom: 14px; color: var(--ink-700); }
+  .chart-card canvas { max-height: 220px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-500); padding: 10px 12px; border-bottom: 1px solid var(--olive-200); }
+  td { padding: 12px; font-size: 13.5px; border-bottom: 1px solid var(--cream-dim); }
+  .util-bar { width: 100px; height: 6px; background: var(--cream-dim); border-radius: 99px; overflow: hidden; display: inline-block; margin-left: 8px; vertical-align: middle; }
+  .util-fill { height: 100%; background: var(--gold-500); }
+
+  .invite-row { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+  select { padding: 10px 12px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; }
+  .code-chip { font-family: monospace; background: var(--cream-dim); padding: 4px 8px; border-radius: 6px; font-size: 12.5px; }
+  h2.section-h { font-size: 18px; margin: 32px 0 14px; }
+  .tier-select-inline { padding: 5px 8px; border: 1px solid var(--olive-200); border-radius: 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="admin-nav-mount" data-active="dashboard"></div>
+
+<div class="admin-body">
+  <div class="stat-row" id="stat-row"></div>
+
+  <div class="chart-row">
+    <div class="card chart-card">
+      <h3>Signups (last 30 days)</h3>
+      <canvas id="signups-chart"></canvas>
+    </div>
+    <div class="card chart-card">
+      <h3>User status breakdown</h3>
+      <canvas id="status-chart"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div class="card chart-card">
+      <h3>Message volume (last 30 days)</h3>
+      <canvas id="volume-chart"></canvas>
+    </div>
+    <div class="card chart-card">
+      <h3>Revenue by plan tier</h3>
+      <canvas id="tier-chart"></canvas>
+    </div>
+  </div>
+
+  <h2 class="section-h">Generate invite code</h2>
+  <div class="invite-row">
+    <select id="tier-select">
+      <option value="light">Light — $100/mo</option>
+      <option value="medium" selected>Medium — $250/mo</option>
+      <option value="heavy">Heavy — $500/mo</option>
+    </select>
+    <button class="btn btn-primary" id="gen-code-btn">Generate code</button>
+    <span id="new-code-display"></span>
+  </div>
+
+  <h2 class="section-h">Organizations</h2>
+  <div class="card" style="padding:0;">
+    <table>
+      <thead>
+        <tr><th>Org</th><th>Plan</th><th>Token usage</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody id="org-rows"></tbody>
+    </table>
+  </div>
+
+  <h2 class="section-h">Invite codes</h2>
+  <div class="card" style="padding:0;">
+    <table>
+      <thead>
+        <tr><th>Code</th><th>Plan</th><th>Status</th><th>Created</th></tr>
+      </thead>
+      <tbody id="invite-rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/admin-nav.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+  auth.requireAuth();
+
+  const CHART_COLORS = { gold: "#c99a3e", olive: "#536242", success: "#4f7a4a", danger: "#a8432f", muted: "#837b6b" };
+
+  async function loadStats() {
+    const overview = await api.adminStatsOverview();
+    const row = document.getElementById("stat-row");
+    row.innerHTML = `
+      <div class="card stat-card"><div class="stat-value positive">$${overview.estimated_mrr_usd.toLocaleString()}</div><div class="stat-label">Estimated MRR</div></div>
+      <div class="card stat-card"><div class="stat-value">${overview.total_users}</div><div class="stat-label">Total users</div></div>
+      <div class="card stat-card"><div class="stat-value">${overview.active_organizations}</div><div class="stat-label">Active orgs</div></div>
+      <div class="card stat-card"><div class="stat-value ${overview.estimated_gross_margin_usd >= 0 ? "positive" : "negative"}">$${overview.estimated_gross_margin_usd.toLocaleString()}</div><div class="stat-label">Est. gross margin (token cost: $${overview.estimated_token_cost_usd.toLocaleString()})</div></div>
+    `;
+
+    new Chart(document.getElementById("status-chart"), {
+      type: "doughnut",
+      data: {
+        labels: ["Active", "Suspended", "Banned"],
+        datasets: [{
+          data: [overview.user_status_breakdown.active, overview.user_status_breakdown.suspended, overview.user_status_breakdown.banned],
+          backgroundColor: [CHART_COLORS.success, CHART_COLORS.gold, CHART_COLORS.danger],
+        }],
+      },
+      options: { plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } } },
+    });
+
+    const tiers = Object.entries(overview.plan_tier_breakdown);
+    new Chart(document.getElementById("tier-chart"), {
+      type: "bar",
+      data: {
+        labels: tiers.map(([k]) => k),
+        datasets: [{ label: "MRR ($)", data: tiers.map(([, v]) => v.mrr), backgroundColor: CHART_COLORS.gold }],
+      },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+    });
+  }
+
+  async function loadTrendCharts() {
+    const signups = await api.adminStatsSignups(30);
+    new Chart(document.getElementById("signups-chart"), {
+      type: "line",
+      data: {
+        labels: signups.map((s) => s.date),
+        datasets: [{ label: "Signups", data: signups.map((s) => s.count), borderColor: CHART_COLORS.olive, backgroundColor: "rgba(83,98,66,0.1)", fill: true, tension: 0.3 }],
+      },
+      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } },
+    });
+
+    const volume = await api.adminStatsMessageVolume(30);
+    new Chart(document.getElementById("volume-chart"), {
+      type: "line",
+      data: {
+        labels: volume.map((v) => v.date),
+        datasets: [{ label: "Messages", data: volume.map((v) => v.count), borderColor: CHART_COLORS.gold, backgroundColor: "rgba(201,154,62,0.1)", fill: true, tension: 0.3 }],
+      },
+      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } },
+    });
+  }
+
+  async function loadOrgs() {
+    const orgs = await api.listOrganizations();
+    document.getElementById("org-rows").innerHTML = orgs
+      .map((o) => {
+        const pct = o.utilization_pct || 0;
+        return `
+      <tr>
+        <td>${o.name}</td>
+        <td>
+          <select class="tier-select-inline" data-org-id="${o.id}">
+            <option value="light" ${o.plan_tier === "light" ? "selected" : ""}>Light</option>
+            <option value="medium" ${o.plan_tier === "medium" ? "selected" : ""}>Medium</option>
+            <option value="heavy" ${o.plan_tier === "heavy" ? "selected" : ""}>Heavy</option>
+          </select>
+        </td>
+        <td>${o.tokens_used_this_period.toLocaleString()} / ${o.monthly_token_allowance.toLocaleString()}
+          <span class="util-bar"><span class="util-fill" style="width:${Math.min(pct, 100)}%"></span></span>
+        </td>
+        <td><span class="badge ${o.is_active ? "badge-active" : "badge-neutral"}">${o.is_active ? "active" : "inactive"}</span></td>
+        <td>${o.is_active
+          ? `<button class="btn btn-outline" style="padding:6px 12px; font-size:12px;" data-action="deactivate" data-id="${o.id}">Deactivate</button>`
+          : `<button class="btn btn-outline" style="padding:6px 12px; font-size:12px;" data-action="activate" data-id="${o.id}">Activate</button>`}</td>
+      </tr>`;
+      })
+      .join("");
+
+    document.querySelectorAll(".tier-select-inline").forEach((sel) => {
+      sel.addEventListener("change", async () => {
+        await api.adminChangePlanTier(sel.dataset.orgId, sel.value);
+        await loadOrgs();
+        await loadStats();
+      });
+    });
+    document.querySelectorAll('[data-action="deactivate"]').forEach((btn) => {
+      btn.addEventListener("click", async () => { await api.deactivateOrg(btn.dataset.id); await loadOrgs(); });
+    });
+    document.querySelectorAll('[data-action="activate"]').forEach((btn) => {
+      btn.addEventListener("click", async () => { await api.adminActivateOrg(btn.dataset.id); await loadOrgs(); });
+    });
+  }
+
+  async function loadInvites() {
+    const invites = await api.listInviteCodes();
+    document.getElementById("invite-rows").innerHTML = invites
+      .map(
+        (c) => `
+      <tr>
+        <td><span class="code-chip">${c.code}</span></td>
+        <td>${c.plan_tier}</td>
+        <td><span class="badge ${c.is_redeemed ? "badge-neutral" : "badge-pending"}">${c.is_redeemed ? "redeemed" : "unused"}</span></td>
+        <td>${new Date(c.created_at).toLocaleDateString()}</td>
+      </tr>`
+      )
+      .join("");
+  }
+
+  document.getElementById("gen-code-btn").addEventListener("click", async () => {
+    const tier = document.getElementById("tier-select").value;
+    const result = await api.createInviteCode({ plan_tier: tier });
+    document.getElementById("new-code-display").innerHTML = `<span class="code-chip">${result.code}</span>`;
+    loadInvites();
+  });
+
+  loadStats();
+  loadTrendCharts();
+  loadOrgs();
+  loadInvites();
+</script>
+</body>
+</html>

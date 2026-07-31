@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Investment Calculator — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .calc-layout { display: grid; grid-template-columns: 360px 1fr; gap: 28px; max-width: 1100px; }
+  .field-group { margin-bottom: 14px; }
+  .field-group label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-700); margin-bottom: 5px; }
+  .field-group input { width: 100%; padding: 9px 11px; border: 1px solid var(--olive-200); border-radius: 7px; font-size: 13.5px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .result-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .result-stat { padding: 16px; }
+  .result-stat .value { font-family: var(--font-display); font-size: 22px; }
+  .result-stat .value.negative { color: var(--danger); }
+  .result-stat .value.positive { color: var(--success); }
+  .result-stat .label { font-size: 11.5px; color: var(--ink-500); text-transform: uppercase; margin-top: 3px; }
+
+  table.projection { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.projection th { text-align: right; padding: 8px 10px; font-size: 10.5px; text-transform: uppercase; color: var(--ink-500); border-bottom: 1px solid var(--olive-200); }
+  table.projection th:first-child, table.projection td:first-child { text-align: left; }
+  table.projection td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--cream-dim); }
+
+  .empty-results { padding: 60px 20px; text-align: center; color: var(--ink-500); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="investment"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Investment Calculator</div>
+      <div class="page-sub">Real amortization math — cap rate, cash-on-cash, and a multi-year cash flow + equity projection. Computed deterministically, not estimated by the LLM.</div>
+
+      <div class="calc-layout">
+        <div class="card">
+          <div class="field-group">
+            <label>Purchase price ($)</label>
+            <input type="number" id="purchase_price" value="400000" />
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label>Down payment (%)</label>
+              <input type="number" id="down_payment_pct" value="20" />
+            </div>
+            <div class="field-group">
+              <label>Interest rate (%)</label>
+              <input type="number" id="interest_rate_pct" value="7" step="0.1" />
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Loan term (years)</label>
+            <input type="number" id="loan_term_years" value="30" />
+          </div>
+          <div class="field-group">
+            <label>Expected monthly rent ($)</label>
+            <input type="number" id="monthly_rent" value="2400" />
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label>Annual rent growth (%)</label>
+              <input type="number" id="annual_rent_growth_pct" value="2.5" step="0.1" />
+            </div>
+            <div class="field-group">
+              <label>Annual appreciation (%)</label>
+              <input type="number" id="annual_appreciation_pct" value="3" step="0.1" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label>Vacancy reserve (%)</label>
+              <input type="number" id="vacancy_reserve_pct" value="5" />
+            </div>
+            <div class="field-group">
+              <label>Maintenance reserve (%)</label>
+              <input type="number" id="maintenance_reserve_pct" value="5" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label>Property tax (% of price/yr)</label>
+              <input type="number" id="annual_property_tax_pct" value="1" step="0.1" />
+            </div>
+            <div class="field-group">
+              <label>Annual insurance ($)</label>
+              <input type="number" id="annual_insurance" value="1500" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label>Closing costs (%)</label>
+              <input type="number" id="closing_costs_pct" value="2.5" step="0.1" />
+            </div>
+            <div class="field-group">
+              <label>Hold period (years)</label>
+              <input type="number" id="hold_years" value="5" />
+            </div>
+          </div>
+          <button class="btn btn-primary" id="calc-btn" style="width:100%; justify-content:center; margin-top:8px;">Calculate</button>
+        </div>
+
+        <div id="results-panel">
+          <div class="empty-results">Enter your assumptions and click Calculate.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/athena-spinner.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script>
+  auth.requireAuth();
+
+  const FIELD_IDS = [
+    "purchase_price", "down_payment_pct", "interest_rate_pct", "loan_term_years",
+    "monthly_rent", "annual_rent_growth_pct", "annual_appreciation_pct",
+    "vacancy_reserve_pct", "maintenance_reserve_pct", "annual_property_tax_pct",
+    "annual_insurance", "closing_costs_pct", "hold_years",
+  ];
+
+  let lastAssumptions = null;
+
+  document.getElementById("calc-btn").addEventListener("click", async () => {
+    const assumptions = {};
+    FIELD_IDS.forEach((id) => {
+      assumptions[id] = parseFloat(document.getElementById(id).value);
+    });
+    lastAssumptions = assumptions;
+
+    const btn = document.getElementById("calc-btn");
+    btn.disabled = true;
+    btn.textContent = "Calculating…";
+
+    try {
+      const result = await api.simulatePortfolio(assumptions);
+      renderResults(result);
+    } catch (e) {
+      document.getElementById("results-panel").innerHTML = `<div class="empty-results">Error: ${e.message}</div>`;
+    }
+    btn.disabled = false;
+    btn.textContent = "Calculate";
+  });
+
+  function renderResults(r) {
+    const panel = document.getElementById("results-panel");
+    const summary = r.hold_period_summary;
+
+    panel.innerHTML = `
+      <div class="result-stat-row">
+        <div class="card result-stat">
+          <div class="value">${r.year_1_cap_rate_pct != null ? r.year_1_cap_rate_pct.toFixed(1) + "%" : "—"}</div>
+          <div class="label">Year 1 cap rate</div>
+        </div>
+        <div class="card result-stat">
+          <div class="value ${r.year_1_cash_on_cash_pct < 0 ? "negative" : "positive"}">${r.year_1_cash_on_cash_pct != null ? r.year_1_cash_on_cash_pct.toFixed(1) + "%" : "—"}</div>
+          <div class="label">Year 1 cash-on-cash</div>
+        </div>
+        <div class="card result-stat">
+          <div class="value ${summary.simple_annualized_return_pct < 0 ? "negative" : "positive"}">${summary.simple_annualized_return_pct != null ? summary.simple_annualized_return_pct.toFixed(1) + "%" : "—"}</div>
+          <div class="label">Annualized return (hold period)</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px; font-size:13px; color:var(--ink-700); line-height:1.7;">
+        <strong>Down payment:</strong> $${r.down_payment.toLocaleString()} &nbsp;·&nbsp;
+        <strong>Closing costs:</strong> $${r.closing_costs.toLocaleString()} &nbsp;·&nbsp;
+        <strong>Total cash invested:</strong> $${r.total_cash_invested.toLocaleString()} &nbsp;·&nbsp;
+        <strong>Monthly payment:</strong> $${r.monthly_mortgage_payment.toLocaleString()}
+      </div>
+
+      <div class="card" style="margin-bottom:20px; background:linear-gradient(135deg, var(--olive-900), var(--olive-800)); color:#fff;" id="interpret-card">
+        <div style="font-size:12.5px; color:var(--gold-400); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px;">🦉 Ask Athena</div>
+        <button class="btn btn-outline" id="interpret-btn" style="background:rgba(244,240,230,0.1); border-color:rgba(244,240,230,0.25); color:#fff; font-size:12.5px;">What does this mean in plain English?</button>
+        <div id="interpret-result" style="font-size:13.5px; line-height:1.65; margin-top:12px; color:rgba(244,240,230,0.92);"></div>
+      </div>
+
+      <div class="card" style="padding:0;">
+        <table class="projection">
+          <thead>
+            <tr>
+              <th>Year</th><th>Gross rent</th><th>NOI</th><th>Cash flow</th><th>Property value</th><th>Equity</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${r.yearly_projection
+              .map(
+                (y) => `
+              <tr>
+                <td>${y.year}</td>
+                <td>$${y.gross_rent.toLocaleString()}</td>
+                <td>$${y.noi.toLocaleString()}</td>
+                <td style="color:${y.annual_cash_flow < 0 ? "var(--danger)" : "inherit"}">$${y.annual_cash_flow.toLocaleString()}</td>
+                <td>$${y.property_value.toLocaleString()}</td>
+                <td>$${y.equity.toLocaleString()}</td>
+              </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById("interpret-btn").addEventListener("click", async () => {
+      const btn = document.getElementById("interpret-btn");
+      const resultEl = document.getElementById("interpret-result");
+      btn.disabled = true;
+      btn.style.display = "none";
+      const spinner = createAthenaSpinner(resultEl, { size: "sm" });
+      spinner.start();
+      try {
+        const { interpretation } = await api.interpretInvestment(lastAssumptions);
+        spinner.stop();
+        resultEl.textContent = interpretation;
+      } catch (e) {
+        spinner.stop();
+        resultEl.textContent = `Error: ${e.message}`;
+        btn.style.display = "inline-flex";
+      }
+      btn.disabled = false;
+      btn.textContent = "What does this mean in plain English?";
+    });
+  }
+</script>
+</body>
+</html>

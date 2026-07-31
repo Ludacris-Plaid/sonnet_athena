@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trust with Athena — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .trust-hero {
+    background: linear-gradient(135deg, var(--olive-900), var(--olive-800));
+    border-radius: 18px; padding: 34px; margin-bottom: 22px; color: #fff;
+    display: grid; grid-template-columns: 260px 1fr; gap: 34px; align-items: center;
+  }
+  .gauge-wrap { position: relative; width: 220px; height: 220px; margin: 0 auto; }
+  .gauge-wrap svg { transform: rotate(-90deg); }
+  .gauge-track { fill: none; stroke: rgba(244,240,230,0.15); stroke-width: 14; }
+  .gauge-fill { fill: none; stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset 1.4s cubic-bezier(0.16,1,0.3,1), stroke 0.6s; }
+  .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .gauge-score { font-family: var(--font-display); font-size: 42px; }
+  .gauge-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(244,240,230,0.6); }
+
+  .level-info .level-eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold-400); font-weight: 700; margin-bottom: 8px; }
+  .level-name { font-family: var(--font-display); font-size: 28px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .level-desc { color: rgba(244,240,230,0.75); font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
+  .level-progress-track { height: 8px; background: rgba(244,240,230,0.15); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+  .level-progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold-600), var(--gold-400)); border-radius: 99px; transition: width 1.2s cubic-bezier(0.16,1,0.3,1); width: 0%; }
+  .level-progress-caption { font-size: 12px; color: rgba(244,240,230,0.6); }
+
+  .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .action-card { padding: 18px; }
+  .action-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .action-name { font-size: 13.5px; font-weight: 700; text-transform: capitalize; }
+  .level-pill { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; }
+  .level-pill.draft_only { background: var(--cream-dim); color: var(--ink-700); }
+  .level-pill.limited_autonomy { background: var(--gold-100); color: var(--gold-600); }
+  .level-pill.full_autonomy { background: #e7f0e4; color: var(--success); }
+  .mini-track { height: 8px; background: var(--cream-dim); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+  .mini-fill { height: 100%; border-radius: 99px; transition: width 1.2s cubic-bezier(0.16,1,0.3,1); width: 0%; }
+  .action-stats { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-500); }
+
+  .section-title { font-size: 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+  .hints-list { max-width: 780px; margin-bottom: 26px; }
+  .hint-card { display: flex; gap: 12px; background: var(--gold-100); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; font-size: 13.5px; color: var(--ink-700); line-height: 1.55; }
+  .hint-icon { flex-shrink: 0; }
+
+  .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .badge-card { padding: 18px; text-align: center; position: relative; transition: transform 0.15s; }
+  .badge-card.locked { opacity: 0.4; filter: grayscale(1); }
+  .badge-card:hover { transform: translateY(-2px); }
+  .badge-icon { font-size: 32px; margin-bottom: 8px; }
+  .badge-label { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .badge-desc { font-size: 11px; color: var(--ink-500); line-height: 1.4; }
+  .badge-new-tag { position: absolute; top: -8px; right: -8px; background: var(--danger); color: #fff; font-size: 9px; font-weight: 700; padding: 3px 7px; border-radius: 99px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="trust"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Trust with Athena</div>
+      <div class="page-sub">The more Athena demonstrates she gets your replies right, the more she earns the right to act on her own — nothing hidden, nothing automatic without a real track record.</div>
+
+      <div id="trust-content">
+        <div style="text-align:center; padding:60px; color:var(--ink-500);">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script>
+  auth.requireAuth();
+
+  const AUTOMATION_LABELS = { draft_only: "Draft Only", limited_autonomy: "Limited Autonomy", full_autonomy: "Full Autonomy" };
+  const AUTOMATION_COLORS = { draft_only: "#837b6b", limited_autonomy: "#c99a3e", full_autonomy: "#4f7a4a" };
+  const ACTION_LABELS = { send_email: "Sending Emails", send_sms: "Sending Texts", schedule_event: "Scheduling Events", update_client: "Updating Clients" };
+
+  function buildGaugeSvg(score, color) {
+    const radius = 90, stroke = 14;
+    const circumference = 2 * Math.PI * radius;
+    const targetOffset = circumference * (1 - score / 100);
+    return `
+      <svg width="220" height="220" viewBox="0 0 220 220">
+        <circle class="gauge-track" cx="110" cy="110" r="${radius}" />
+        <circle class="gauge-fill" id="gauge-circle" cx="110" cy="110" r="${radius}"
+          stroke="${color}" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}" />
+      </svg>
+      <div class="gauge-center">
+        <div class="gauge-score">${score.toFixed(0)}</div>
+        <div class="gauge-label">Trust Score</div>
+      </div>
+    `;
+  }
+
+  async function load() {
+    const g = await api.getTrustGamification();
+    render(g);
+  }
+
+  function render(g) {
+    const content = document.getElementById("trust-content");
+    const levelColor = g.level.color;
+
+    content.innerHTML = `
+      <div class="trust-hero">
+        <div class="gauge-wrap">${buildGaugeSvg(g.overall_score, levelColor)}</div>
+        <div class="level-info">
+          <div class="level-eyebrow">Current Level</div>
+          <div class="level-name">${g.level.icon} ${g.level.name}</div>
+          <div class="level-desc">
+            ${g.next_level
+              ? `${g.points_to_next_level.toFixed(0)} points to ${g.next_level.icon} ${g.next_level.name} — keep letting unedited drafts through and reviewing anything that feels off.`
+              : `Athena has reached the top level with you — full autonomy, earned the real way.`}
+          </div>
+          <div class="level-progress-track"><div class="level-progress-fill" id="level-progress-fill"></div></div>
+          <div class="level-progress-caption">${g.badges_earned_count} of ${g.badges.length} badges earned</div>
+        </div>
+      </div>
+
+      <div class="section-title">📊 Trust by action type</div>
+      <div class="action-grid">
+        ${g.per_action_scores
+          .map(
+            (a) => `
+          <div class="card action-card">
+            <div class="action-card-top">
+              <span class="action-name">${ACTION_LABELS[a.action_type] || a.action_type}</span>
+              <span class="level-pill ${a.automation_level}">${AUTOMATION_LABELS[a.automation_level]}</span>
+            </div>
+            <div class="mini-track"><div class="mini-fill" data-target="${a.score}" style="background:${AUTOMATION_COLORS[a.automation_level]}"></div></div>
+            <div class="action-stats">
+              <span>${a.score.toFixed(0)}/100</span>
+              <span>${a.total_actions} actions · ${a.actions_rejected} rejected</span>
+            </div>
+          </div>`
+          )
+          .join("") || '<div class="card action-card">No activity yet — as Athena drafts and sends things on your behalf, her trust scores will build up here.</div>'}
+      </div>
+
+      ${
+        g.hints.length
+          ? `
+      <div class="section-title">💡 How to build more trust</div>
+      <div class="hints-list">
+        ${g.hints.map((h) => `<div class="hint-card"><span class="hint-icon">→</span><span>${h.hint}</span></div>`).join("")}
+      </div>`
+          : ""
+      }
+
+      <div class="section-title">🏅 Badges</div>
+      <div class="badge-grid">
+        ${g.badges
+          .map(
+            (b) => `
+          <div class="card badge-card ${b.earned ? "" : "locked"}">
+            ${b.newly_earned ? '<span class="badge-new-tag">NEW</span>' : ""}
+            <div class="badge-icon">${b.icon}</div>
+            <div class="badge-label">${b.label}</div>
+            <div class="badge-desc">${b.description}</div>
+          </div>`
+          )
+          .join("")}
+      </div>
+    `;
+
+    // Animate the gauge and progress bars in on the next frame, so the
+    // CSS transition actually plays instead of jumping straight to the
+    // final value (setting stroke-dashoffset/width in the same paint as
+    // the transition property wouldn't animate).
+    requestAnimationFrame(() => {
+      const radius = 90;
+      const circumference = 2 * Math.PI * radius;
+      const targetOffset = circumference * (1 - g.overall_score / 100);
+      document.getElementById("gauge-circle").style.strokeDashoffset = targetOffset;
+
+      const levelPct = g.next_level
+        ? Math.max(0, Math.min(100, ((g.overall_score - g.level.min_score) / (g.next_level.min_score - g.level.min_score)) * 100))
+        : 100;
+      document.getElementById("level-progress-fill").style.width = levelPct + "%";
+
+      document.querySelectorAll(".mini-fill").forEach((el) => {
+        el.style.width = el.dataset.target + "%";
+      });
+    });
+  }
+
+  load();
+</script>
+</body>
+</html>

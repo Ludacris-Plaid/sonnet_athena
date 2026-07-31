@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Create your account — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<style>
+  .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .auth-card { width: 100%; max-width: 420px; background: #fff; border: 1px solid var(--olive-200); border-radius: 16px; padding: 36px 32px; box-shadow: var(--shadow-card); }
+  .auth-brand { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--olive-800); margin-bottom: 26px; }
+  .auth-title { font-size: 21px; margin-bottom: 6px; }
+  .auth-sub { font-size: 13.5px; color: var(--ink-500); margin-bottom: 24px; }
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-700); margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 11px 13px; border: 1px solid var(--olive-200); border-radius: 8px;
+    font-size: 14px; margin-bottom: 16px; font-family: var(--font-body);
+  }
+  input:focus { outline: 2px solid var(--gold-400); outline-offset: 1px; border-color: transparent; }
+  .btn-primary { width: 100%; justify-content: center; padding: 12px; }
+  .auth-footer { font-size: 13px; color: var(--ink-500); margin-top: 18px; text-align: center; }
+  .error-msg { background: #fbe9e5; color: var(--danger); font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; display: none; }
+  .invite-hint { font-size: 12px; color: var(--ink-500); margin-top: -10px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">🦉 Athena</div>
+    <div class="auth-title display">Set up your account</div>
+    <div class="auth-sub">You'll need the invite code from your demo email.</div>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <form id="signup-form">
+      <label for="invite_code">Invite code</label>
+      <input type="text" id="invite_code" placeholder="RLTY-XXXXXXXXXX" required style="text-transform: uppercase;" />
+      <div class="invite-hint">Sent to you after booking a demo.</div>
+
+      <label for="org_name">Brokerage / team name</label>
+      <input type="text" id="org_name" required />
+
+      <label for="full_name">Your name</label>
+      <input type="text" id="full_name" required />
+
+      <label for="email">Email</label>
+      <input type="email" id="email" required autocomplete="email" />
+
+      <label for="password">Password</label>
+      <input type="password" id="password" required minlength="8" autocomplete="new-password" />
+
+      <button type="submit" class="btn btn-primary">Create account</button>
+    </form>
+
+    <div class="auth-footer">Already have an account? <a href="/app/login.html" style="color:var(--gold-600); font-weight:600;">Log in</a></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script>
+  document.getElementById("signup-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById("error-msg");
+    errorEl.style.display = "none";
+
+    const inviteCode = document.getElementById("invite_code").value.trim();
+    const orgName = document.getElementById("org_name").value;
+    const fullName = document.getElementById("full_name").value;
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    try {
+      // Step 1: create the actual auth account with Supabase.
+      const signUpResult = await supabaseAuth.signUp(email, password);
+
+      if (!signUpResult.session) {
+        // Project has email confirmation enabled — can't complete signup
+        // (redeem the invite code) until the session exists after confirming.
+        errorEl.textContent = "Check your email to confirm your account, then log in to finish setup.";
+        errorEl.style.display = "block";
+        return;
+      }
+
+      // Step 2: now that we have a real Supabase session, redeem the invite
+      // code and create the org/profile.
+      await api.completeSignup({ invite_code: inviteCode, org_name: orgName, full_name: fullName });
+      window.location.href = "/app/inbox.html";
+    } catch (err) {
+      errorEl.textContent = err.message || "Signup failed. Double check your invite code.";
+      errorEl.style.display = "block";
+    }
+  });
+</script>
+</body>
+</html>

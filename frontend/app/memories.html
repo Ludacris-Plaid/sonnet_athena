@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Memories — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .toolbar input, .toolbar select { padding: 9px 12px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13px; }
+  .toolbar input { flex: 1; min-width: 220px; max-width: 340px; }
+
+  .memory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .memory-card {
+    background: #fff; border: 1px solid var(--olive-200); border-radius: 12px; padding: 16px; cursor: pointer;
+    display: flex; flex-direction: column; gap: 8px; transition: border-color 0.15s, transform 0.15s;
+  }
+  .memory-card:hover { border-color: var(--gold-400); transform: translateY(-1px); }
+  .memory-card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .category-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; }
+  .category-badge.preference { background: var(--gold-100); color: var(--gold-600); }
+  .category-badge.fact { background: #e2e8da; color: var(--olive-700); }
+  .category-badge.insight { background: #ece3f5; color: #7c5cbf; }
+  .memory-card { border-left: 3px solid transparent; }
+  .memory-card.preference { border-left-color: var(--gold-500); }
+  .memory-card.fact { border-left-color: var(--olive-500); }
+  .memory-card.insight { border-left-color: #7c5cbf; }
+  .memory-card-text { font-size: 13.5px; color: var(--ink-700); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .memory-card-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--ink-500); margin-top: auto; }
+  .client-chip { background: var(--cream-dim); padding: 2px 8px; border-radius: 99px; }
+
+  .empty-state { padding: 60px 20px; text-align: center; color: var(--ink-500); font-size: 14px; grid-column: 1 / -1; }
+
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(36,31,24,0.5); align-items: center; justify-content: center; z-index: 50; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #fff; border-radius: 16px; padding: 28px; width: 480px; max-width: 92vw; max-height: 85vh; overflow-y: auto; }
+  .modal-category { display: inline-block; margin-bottom: 12px; }
+  .modal-text { font-size: 15px; line-height: 1.65; color: var(--ink-900); margin-bottom: 20px; white-space: pre-wrap; }
+  .modal-field { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--cream-dim); font-size: 13px; }
+  .modal-field:first-of-type { border-top: none; }
+  .modal-field .label { color: var(--ink-500); }
+  .modal-field .value { font-family: monospace; font-size: 11.5px; color: var(--ink-700); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="memories"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Memories</div>
+      <div class="page-sub">Everything Athena remembers — every card here is something she'll draw on in conversations, drafts, and calls.</div>
+
+      <div class="toolbar">
+        <input type="text" id="search-input" placeholder="Search memory text…" />
+        <select id="category-filter">
+          <option value="">All categories</option>
+        </select>
+      </div>
+
+      <div class="memory-grid" id="memory-grid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <span class="category-badge modal-category" id="modal-category"></span>
+    <div class="modal-text" id="modal-text"></div>
+    <div class="modal-field"><span class="label">Client</span><span class="value" id="modal-client">—</span></div>
+    <div class="modal-field"><span class="label">Created</span><span class="value" id="modal-created">—</span></div>
+    <div class="modal-field"><span class="label">Memory ID</span><span class="value" id="modal-id">—</span></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="modal-close">Close</button>
+      <button class="btn btn-outline" id="modal-delete" style="color:var(--danger); border-color:var(--danger);">Forget this</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  let categoryTaxonomy = {};
+
+  async function loadCategories() {
+    categoryTaxonomy = await api.getMemoryCategories();
+    const select = document.getElementById("category-filter");
+    Object.entries(categoryTaxonomy).forEach(([key, meta]) => {
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = `${meta.icon} ${meta.label}`;
+      select.appendChild(opt);
+    });
+  }
+
+  let currentMemories = [];
+
+  function timeAgo(iso) {
+    if (!iso) return "unknown";
+    const diff = (Date.now() - new Date(iso).getTime()) / 86400000;
+    if (diff < 1) return "today";
+    if (diff < 30) return `${Math.floor(diff)}d ago`;
+    return `${Math.floor(diff / 30)}mo ago`;
+  }
+
+  async function loadMemories() {
+    const filters = {
+      search: document.getElementById("search-input").value.trim(),
+      category: document.getElementById("category-filter").value,
+    };
+    currentMemories = await api.listMemories(filters);
+    renderGrid();
+  }
+
+  function renderGrid() {
+    const grid = document.getElementById("memory-grid");
+    if (!currentMemories.length) {
+      grid.innerHTML = `<div class="empty-state">No memories match yet — as Athena learns about your clients and preferences through chat, voice, and email, they'll show up here.</div>`;
+      return;
+    }
+
+    grid.innerHTML = currentMemories
+      .map(
+        (m) => `
+      <div class="memory-card ${m.category || "fact"}" data-id="${m.id}">
+        <div class="memory-card-top">
+          <span class="category-badge ${m.category || "fact"}">${(categoryTaxonomy[m.category] || {}).icon || ""} ${m.category || "fact"}</span>
+        </div>
+        <div class="memory-card-text">${m.text}</div>
+        <div class="memory-card-footer">
+          <span>${timeAgo(m.created_at)}</span>
+          ${m.client_id ? `<span class="client-chip">linked to client</span>` : ""}
+        </div>
+      </div>`
+      )
+      .join("");
+
+    grid.querySelectorAll(".memory-card").forEach((card) => {
+      card.addEventListener("click", () => openModal(card.dataset.id));
+    });
+  }
+
+  function openModal(id) {
+    const memory = currentMemories.find((m) => m.id === id);
+    if (!memory) return;
+
+    const meta = categoryTaxonomy[memory.category] || {};
+    document.getElementById("modal-category").textContent = `${meta.icon || ""} ${meta.label || memory.category || "fact"}`;
+    document.getElementById("modal-category").className = `category-badge modal-category ${memory.category || "fact"}`;
+    document.getElementById("modal-text").textContent = memory.text;
+    document.getElementById("modal-client").textContent = memory.client_id || "Not linked to a specific client";
+    document.getElementById("modal-created").textContent = memory.created_at ? new Date(memory.created_at).toLocaleString() : "Unknown";
+    document.getElementById("modal-id").textContent = memory.id;
+
+    document.getElementById("modal-delete").onclick = async () => {
+      if (!await systemConfirm("Athena will no longer recall this. Continue?")) return;
+      await api.deleteMemory(memory.id);
+      document.getElementById("modal-backdrop").classList.remove("open");
+      loadMemories();
+    };
+
+    document.getElementById("modal-backdrop").classList.add("open");
+  }
+
+  document.getElementById("modal-close").addEventListener("click", () => {
+    document.getElementById("modal-backdrop").classList.remove("open");
+  });
+
+  document.getElementById("search-input").addEventListener("input", () => {
+    clearTimeout(window._memSearchDebounce);
+    window._memSearchDebounce = setTimeout(loadMemories, 300);
+  });
+  document.getElementById("category-filter").addEventListener("change", loadMemories);
+
+  loadCategories().then(loadMemories);
+</script>
+</body>
+</html>

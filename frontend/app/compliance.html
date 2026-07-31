@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Compliance — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .disclaimer-banner {
+    background: var(--gold-100); border: 1px solid var(--gold-400); border-radius: 10px;
+    padding: 12px 16px; font-size: 13px; color: var(--gold-600); font-weight: 600; margin-bottom: 24px; max-width: 720px;
+  }
+  .tool-tabs { display: flex; gap: 6px; margin-bottom: 22px; }
+  .tool-tab { padding: 9px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; color: var(--ink-700); }
+  .tool-tab.active { background: var(--olive-800); color: #fff; }
+  .tool-panel { display: none; max-width: 720px; }
+  .tool-panel.active { display: block; }
+
+  textarea#listing-input {
+    width: 100%; min-height: 120px; padding: 14px; border: 1px solid var(--olive-200); border-radius: 10px;
+    font-family: var(--font-body); font-size: 14px; margin-bottom: 12px; resize: vertical;
+  }
+  .risk-badge { display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; padding: 4px 12px; border-radius: 99px; margin-bottom: 16px; }
+  .risk-high { background: #fbe9e5; color: var(--danger); }
+  .risk-caution { background: var(--gold-100); color: var(--gold-600); }
+  .risk-low { background: #e7f0e4; color: var(--success); }
+
+  .flag-card { border: 1px solid var(--olive-200); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .flag-phrase { font-weight: 700; font-size: 13.5px; margin-bottom: 4px; }
+  .flag-meta { font-size: 11.5px; color: var(--ink-500); text-transform: uppercase; margin-bottom: 6px; }
+  .flag-explanation { font-size: 13px; color: var(--ink-700); line-height: 1.5; }
+
+  select { padding: 10px 12px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; margin-bottom: 16px; }
+  .ref-item { padding: 10px 0; border-top: 1px solid var(--cream-dim); font-size: 13.5px; color: var(--ink-700); }
+  .ref-item:first-child { border-top: none; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="compliance"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Compliance</div>
+      <div class="page-sub">Fair housing screening, disclosure reference, and AML overview for US and Canada.</div>
+
+      <div class="disclaimer-banner">⚠️ Automated first-pass check only — not legal advice. Confirm with your brokerage's compliance officer or local regulator before relying on this.</div>
+
+      <div class="tool-tabs">
+        <div class="tool-tab active" data-tab="screen">Fair Housing Screen</div>
+        <div class="tool-tab" data-tab="disclosure">Disclosure Reference</div>
+        <div class="tool-tab" data-tab="aml">AML Overview</div>
+      </div>
+
+      <div class="tool-panel active" id="panel-screen">
+        <textarea id="listing-input" placeholder="Paste listing description or ad copy here…"></textarea>
+        <button class="btn btn-primary" id="screen-btn">Screen text</button>
+        <div id="screen-results" style="margin-top:20px;"></div>
+      </div>
+
+      <div class="tool-panel" id="panel-disclosure">
+        <select id="jurisdiction-select">
+          <option value="US-generic">US — General</option>
+          <option value="US-CA">US — California</option>
+          <option value="US-TX">US — Texas</option>
+          <option value="US-NY">US — New York</option>
+          <option value="US-FL">US — Florida</option>
+          <option value="CA-ON">Canada — Ontario</option>
+          <option value="CA-BC">Canada — British Columbia</option>
+          <option value="CA-AB">Canada — Alberta</option>
+        </select>
+        <div id="disclosure-results" class="card"></div>
+      </div>
+
+      <div class="tool-panel" id="panel-aml">
+        <select id="country-select">
+          <option value="US">United States</option>
+          <option value="CA">Canada</option>
+        </select>
+        <div id="aml-results" class="card"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script>
+  auth.requireAuth();
+
+  document.querySelectorAll(".tool-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tool-tab").forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".tool-panel").forEach((p) => p.classList.remove("active"));
+      tab.classList.add("active");
+      document.getElementById(`panel-${tab.dataset.tab}`).classList.add("active");
+    });
+  });
+
+  document.getElementById("screen-btn").addEventListener("click", async () => {
+    const text = document.getElementById("listing-input").value.trim();
+    if (!text) return;
+    const btn = document.getElementById("screen-btn");
+    btn.disabled = true;
+    btn.textContent = "Screening…";
+
+    const result = await api.screenListingText(text);
+
+    const riskClass = `risk-${result.overall_risk}`;
+    const resultsEl = document.getElementById("screen-results");
+    let html = `<div class="risk-badge ${riskClass}">${result.overall_risk} risk</div>`;
+
+    if (!result.flags || !result.flags.length) {
+      html += `<div style="font-size:13.5px; color:var(--ink-700);">No fair housing issues detected in this text.</div>`;
+    } else {
+      html += result.flags
+        .map(
+          (f) => `
+        <div class="flag-card">
+          <div class="flag-phrase">"${f.phrase}"</div>
+          <div class="flag-meta">${f.protected_class} · ${f.severity}</div>
+          <div class="flag-explanation">${f.explanation}</div>
+        </div>`
+        )
+        .join("");
+    }
+    resultsEl.innerHTML = html;
+
+    btn.disabled = false;
+    btn.textContent = "Screen text";
+  });
+
+  async function loadDisclosure() {
+    const jurisdiction = document.getElementById("jurisdiction-select").value;
+    const result = await api.getDisclosureReference(jurisdiction);
+    const el = document.getElementById("disclosure-results");
+    if (!result.items || !result.items.length) {
+      el.innerHTML = `<div class="ref-item">${result.note || "No data for this jurisdiction yet."}</div>`;
+    } else {
+      el.innerHTML = result.items.map((item) => `<div class="ref-item">${item}</div>`).join("");
+    }
+  }
+  document.getElementById("jurisdiction-select").addEventListener("change", loadDisclosure);
+  loadDisclosure();
+
+  async function loadAml() {
+    const country = document.getElementById("country-select").value;
+    const result = await api.getAmlOverview(country);
+    const el = document.getElementById("aml-results");
+    el.innerHTML = `
+      <div class="ref-item"><strong>Summary:</strong> ${result.summary || ""}</div>
+      ${result.status_note ? `<div class="ref-item"><strong>Status:</strong> ${result.status_note}</div>` : ""}
+      ${result.authoritative_source ? `<div class="ref-item"><strong>Source:</strong> <a href="${result.authoritative_source}" target="_blank" style="color:var(--gold-600);">${result.authoritative_source}</a></div>` : ""}
+    `;
+  }
+  document.getElementById("country-select").addEventListener("change", loadAml);
+  loadAml();
+</script>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CRM Integrations — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .section-block { max-width: 720px; margin-bottom: 40px; }
+  .provider-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 24px; }
+  .provider-card { border: 1px solid var(--olive-200); border-radius: 12px; padding: 18px; cursor: pointer; background: #fff; }
+  .provider-card:hover { border-color: var(--gold-400); }
+  .provider-name { font-weight: 700; font-size: 14.5px; margin-bottom: 6px; }
+  .provider-note { font-size: 12px; color: var(--ink-500); }
+
+  .connection-card { border: 1px solid var(--olive-200); border-radius: 12px; padding: 16px 18px; margin-bottom: 12px; background: #fff; display: flex; justify-content: space-between; align-items: center; }
+  .connection-info .name { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+  .connection-info .meta { font-size: 12px; color: var(--ink-500); }
+  .connection-actions { display: flex; gap: 8px; }
+  .connection-actions .btn { font-size: 12px; padding: 7px 12px; }
+
+  .status-pill { font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; margin-left: 8px; }
+  .status-pill.success { background: #e7f0e4; color: var(--success); }
+  .status-pill.error { background: #fbe9e5; color: var(--danger); }
+
+  .csv-drop { border: 2px dashed var(--olive-200); border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; }
+  .csv-drop:hover { border-color: var(--gold-400); }
+
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(36,31,24,0.4); align-items: center; justify-content: center; z-index: 50; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 28px; width: 420px; max-width: 90vw; }
+  .modal h3 { margin-bottom: 6px; }
+  .modal .sub { font-size: 12.5px; color: var(--ink-500); margin-bottom: 18px; }
+  .modal input, .modal select { width: 100%; padding: 10px 12px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-error { font-size: 12.5px; color: var(--danger); margin-bottom: 12px; display: none; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="crm"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">CRM Integrations</div>
+      <div class="page-sub">Connect your existing CRM so Athena works with the clients you already have — not a second, disconnected system.</div>
+
+      <div class="section-block">
+        <h3 style="font-size:16px; margin-bottom:12px;">Connect a CRM</h3>
+        <div class="provider-grid" id="provider-grid"></div>
+      </div>
+
+      <div class="section-block">
+        <h3 style="font-size:16px; margin-bottom:12px;">Connected</h3>
+        <div id="connections-list"></div>
+      </div>
+
+      <div class="section-block">
+        <h3 style="font-size:16px; margin-bottom:6px;">No API access? Import a CSV instead</h3>
+        <div class="page-sub" style="margin-bottom:16px;">Most brokerage-bundled CRMs (kvCORE/BoldTrail, BoomTown, Sierra) don't expose a public API. Export your contacts to CSV from whatever you use, and import here — one-time, not a live sync.</div>
+        <label class="csv-drop">
+          <input type="file" id="csv-input" accept=".csv" style="display:none;" />
+          <div style="font-size:14px; color:var(--ink-700);">📄 Click to choose a CSV file</div>
+          <div style="font-size:12px; color:var(--ink-500); margin-top:6px;">Common columns (name, email, phone, budget, city) are auto-detected</div>
+        </label>
+        <div id="csv-result" style="margin-top:14px; font-size:13.5px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <h3 class="display" id="modal-title">Connect provider</h3>
+    <div class="sub" id="modal-sub"></div>
+    <div class="modal-error" id="modal-error"></div>
+    <div id="modal-fields"></div>
+    <select id="sync-direction">
+      <option value="import_only">Import only (pull their contacts into RealtyAI)</option>
+      <option value="two_way">Two-way sync</option>
+      <option value="export_only">Export only (push RealtyAI clients to them)</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="modal-connect">Connect</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  let providers = [];
+  let selectedProvider = null;
+
+  async function loadProviders() {
+    providers = await api.listCrmProviders();
+    const grid = document.getElementById("provider-grid");
+    grid.innerHTML = providers
+      .map(
+        (p) => `
+      <div class="provider-card" data-key="${p.key}">
+        <div class="provider-name">${p.label}</div>
+        <div class="provider-note">${p.supports_webhooks ? "Real-time sync via webhooks" : "Sync via periodic pull"}</div>
+      </div>`
+      )
+      .join("");
+
+    grid.querySelectorAll(".provider-card").forEach((card) => {
+      card.addEventListener("click", () => openModal(card.dataset.key));
+    });
+  }
+
+  function openModal(providerKey) {
+    selectedProvider = providers.find((p) => p.key === providerKey);
+    document.getElementById("modal-title").textContent = `Connect ${selectedProvider.label}`;
+    document.getElementById("modal-sub").textContent =
+      selectedProvider.key === "followupboss"
+        ? "Find your API key under Admin -> API in Follow Up Boss."
+        : "Generate a Private App token under Settings -> Integrations -> Private Apps in HubSpot.";
+    document.getElementById("modal-error").style.display = "none";
+
+    const fieldsEl = document.getElementById("modal-fields");
+    fieldsEl.innerHTML = selectedProvider.credential_fields
+      .map((f) => `<input type="text" id="cred-${f}" placeholder="${f.replace(/_/g, " ")}" />`)
+      .join("");
+
+    document.getElementById("modal-backdrop").classList.add("open");
+  }
+
+  document.getElementById("modal-cancel").addEventListener("click", () => {
+    document.getElementById("modal-backdrop").classList.remove("open");
+  });
+
+  document.getElementById("modal-connect").addEventListener("click", async () => {
+    const credentials = {};
+    selectedProvider.credential_fields.forEach((f) => {
+      credentials[f] = document.getElementById(`cred-${f}`).value.trim();
+    });
+    const sync_direction = document.getElementById("sync-direction").value;
+
+    const btn = document.getElementById("modal-connect");
+    btn.disabled = true;
+    btn.textContent = "Connecting…";
+
+    try {
+      await api.createCrmConnection({ provider: selectedProvider.key, sync_direction, credentials });
+      document.getElementById("modal-backdrop").classList.remove("open");
+      await loadConnections();
+    } catch (err) {
+      const errorEl = document.getElementById("modal-error");
+      errorEl.textContent = err.message;
+      errorEl.style.display = "block";
+    }
+    btn.disabled = false;
+    btn.textContent = "Connect";
+  });
+
+  async function loadConnections() {
+    const connections = await api.listCrmConnections();
+    const list = document.getElementById("connections-list");
+
+    if (!connections.length) {
+      list.innerHTML = `<div style="font-size:13.5px; color:var(--ink-500);">No CRMs connected yet.</div>`;
+      return;
+    }
+
+    const providerLabels = Object.fromEntries(providers.map((p) => [p.key, p.label]));
+
+    list.innerHTML = connections
+      .map(
+        (c) => `
+      <div class="connection-card">
+        <div class="connection-info">
+          <div class="name">
+            ${providerLabels[c.provider] || c.provider}
+            ${c.last_sync_status ? `<span class="status-pill ${c.last_sync_status}">${c.last_sync_status}</span>` : ""}
+          </div>
+          <div class="meta">${c.sync_direction.replace("_", " ")} · last synced ${c.last_synced_at ? new Date(c.last_synced_at).toLocaleString() : "never"}</div>
+        </div>
+        <div class="connection-actions">
+          <button class="btn btn-outline" data-action="sync" data-id="${c.id}">Sync now</button>
+          <button class="btn btn-outline" data-action="history" data-id="${c.id}">History</button>
+          <button class="btn btn-outline" data-action="delete" data-id="${c.id}">Disconnect</button>
+        </div>
+      </div>
+      <div id="history-${c.id}" style="display:none; margin: -4px 0 12px; font-size:12px; color:var(--ink-700); background: var(--cream-dim); border-radius: 8px; padding: 10px 14px;"></div>`
+      )
+      .join("");
+
+    list.querySelectorAll('[data-action="history"]').forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const panel = document.getElementById(`history-${btn.dataset.id}`);
+        if (panel.style.display === "block") {
+          panel.style.display = "none";
+          return;
+        }
+        panel.style.display = "block";
+        panel.textContent = "Loading…";
+        try {
+          const logs = await api.getCrmSyncLogs(btn.dataset.id);
+          panel.innerHTML = logs.length
+            ? logs
+                .map(
+                  (l) =>
+                    `${new Date(l.started_at).toLocaleString()} · ${l.trigger} · ${l.status} — ${l.contacts_imported} imported, ${l.contacts_updated} updated, ${l.contacts_exported} exported${l.error_message ? ` — ${l.error_message}` : ""}`
+                )
+                .join("<br/>")
+            : "No sync history yet.";
+        } catch (e) {
+          panel.textContent = `Error: ${e.message}`;
+        }
+      });
+    });
+
+    list.querySelectorAll('[data-action="sync"]').forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        btn.textContent = "Syncing…";
+        try {
+          const log = await api.triggerCrmSync(btn.dataset.id);
+          await systemAlert(
+            log.status === "success"
+              ? `Sync complete: ${log.contacts_imported} imported, ${log.contacts_updated} updated, ${log.contacts_exported} exported.`
+              : `Sync failed: ${log.error_message}`
+          );
+        } catch (e) {
+          await systemAlert(e.message);
+        }
+        await loadConnections();
+      });
+    });
+
+    list.querySelectorAll('[data-action="delete"]').forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!await systemConfirm("Disconnect this CRM? Clients already synced will remain in RealtyAI.")) return;
+        await api.deleteCrmConnection(btn.dataset.id);
+        await loadConnections();
+      });
+    });
+  }
+
+  document.getElementById("csv-input").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const resultEl = document.getElementById("csv-result");
+    resultEl.textContent = "Importing…";
+    try {
+      const result = await api.importCrmCsv(file);
+      resultEl.textContent = `Imported ${result.created} new contacts, updated ${result.updated} existing (matched by email), out of ${result.total_rows} rows.`;
+    } catch (err) {
+      resultEl.textContent = `Error: ${err.message}`;
+    }
+    e.target.value = "";
+  });
+
+  (async function init() {
+    await loadProviders();
+    await loadConnections();
+  })();
+</script>
+</body>
+</html>

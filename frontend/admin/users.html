@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Users — Admin — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .admin-body { padding: 32px; max-width: 1200px; margin: 0 auto; }
+  .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+  .filter-bar input { flex: 1; max-width: 320px; padding: 10px 13px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; }
+  .filter-bar select { padding: 10px 13px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-500); padding: 10px 12px; border-bottom: 1px solid var(--olive-200); }
+  td { padding: 12px; font-size: 13.5px; border-bottom: 1px solid var(--cream-dim); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+
+  .status-pill { font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; }
+  .status-pill.active { background: #e7f0e4; color: var(--success); }
+  .status-pill.suspended { background: var(--gold-100); color: var(--gold-600); }
+  .status-pill.banned { background: #fbe9e5; color: var(--danger); }
+
+  .row-actions { display: flex; gap: 6px; }
+  .row-actions button { font-size: 11.5px; padding: 5px 10px; }
+  .admin-tag { font-size: 10px; font-weight: 700; color: var(--gold-600); margin-left: 6px; }
+
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(36,31,24,0.5); align-items: center; justify-content: center; z-index: 50; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 26px; width: 420px; max-width: 90vw; }
+  .modal h3 { margin-bottom: 14px; font-size: 17px; }
+  .modal textarea, .modal input { width: 100%; padding: 10px 12px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; margin-bottom: 12px; font-family: var(--font-body); }
+  .modal textarea { min-height: 70px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-warning { font-size: 12.5px; color: var(--danger); background: #fbe9e5; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; }
+  .user-name-link { cursor: pointer; text-decoration: underline; text-decoration-color: var(--olive-200); text-underline-offset: 2px; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div id="admin-nav-mount" data-active="users"></div>
+
+<div class="admin-body">
+  <div class="page-title display" style="margin-bottom:6px;">Users</div>
+  <div class="page-sub" style="margin-bottom:22px;">Every user across every organization on the platform.</div>
+
+  <div class="filter-bar">
+    <input type="text" id="search-input" placeholder="Search by name or email…" />
+    <select id="status-filter">
+      <option value="">All statuses</option>
+      <option value="active">Active</option>
+      <option value="suspended">Suspended</option>
+      <option value="banned">Banned</option>
+    </select>
+  </div>
+
+  <div class="card" style="padding:0;">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Email</th><th>Status</th><th>Joined</th><th></th></tr>
+      </thead>
+      <tbody id="user-rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <h3 id="modal-title">Update status</h3>
+    <div class="modal-warning" id="modal-warning" style="display:none;"></div>
+    <textarea id="modal-reason" placeholder="Reason (recorded in the audit log)…"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="modal-confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="edit-modal-backdrop">
+  <div class="modal">
+    <h3>Edit user</h3>
+    <label style="font-size:12.5px; font-weight:600; display:block; margin-bottom:5px;">Full name</label>
+    <input type="text" id="edit-full-name" />
+    <div class="checkbox-row">
+      <input type="checkbox" id="edit-is-admin" />
+      <label for="edit-is-admin">Platform admin (full access to this console)</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="edit-modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="edit-modal-save">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/admin-nav.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  let pendingAction = null; // { userId, newStatus, name }
+
+  async function loadUsers() {
+    const search = document.getElementById("search-input").value.trim();
+    const status = document.getElementById("status-filter").value;
+    const users = await api.adminListUsers(search || undefined, status || undefined);
+
+    document.getElementById("user-rows").innerHTML = users
+      .map(
+        (u) => `
+      <tr>
+        <td><span class="user-name-link" data-edit-id="${u.id}">${u.full_name}</span>${u.is_admin ? '<span class="admin-tag">ADMIN</span>' : ""}</td>
+        <td>${u.email}</td>
+        <td><span class="status-pill ${u.status}">${u.status}</span></td>
+        <td>${new Date(u.created_at).toLocaleDateString()}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn btn-outline" data-edit-id="${u.id}">Edit</button>
+            ${u.status !== "active" ? `<button class="btn btn-outline" data-action="active" data-id="${u.id}" data-name="${u.full_name}">Reinstate</button>` : ""}
+            ${u.status !== "suspended" ? `<button class="btn btn-outline" data-action="suspended" data-id="${u.id}" data-name="${u.full_name}">Suspend</button>` : ""}
+            ${u.status !== "banned" ? `<button class="btn btn-outline" data-action="banned" data-id="${u.id}" data-name="${u.full_name}">Boot</button>` : ""}
+          </div>
+        </td>
+      </tr>`
+      )
+      .join("");
+
+    document.querySelectorAll("[data-action]").forEach((btn) => {
+      btn.addEventListener("click", () => openStatusModal(btn.dataset.id, btn.dataset.action, btn.dataset.name));
+    });
+    document.querySelectorAll("[data-edit-id]").forEach((el) => {
+      el.addEventListener("click", () => openEditModal(el.dataset.editId));
+    });
+  }
+
+  let editingUserId = null;
+
+  async function openEditModal(userId) {
+    editingUserId = userId;
+    const user = await api.adminGetUser(userId);
+    document.getElementById("edit-full-name").value = user.full_name;
+    document.getElementById("edit-is-admin").checked = user.is_admin;
+    document.getElementById("edit-modal-backdrop").classList.add("open");
+  }
+
+  document.getElementById("edit-modal-cancel").addEventListener("click", () => {
+    document.getElementById("edit-modal-backdrop").classList.remove("open");
+  });
+
+  document.getElementById("edit-modal-save").addEventListener("click", async () => {
+    try {
+      await api.adminUpdateUser(editingUserId, {
+        full_name: document.getElementById("edit-full-name").value,
+        is_admin: document.getElementById("edit-is-admin").checked,
+      });
+      document.getElementById("edit-modal-backdrop").classList.remove("open");
+      await loadUsers();
+    } catch (e) {
+      await systemAlert(e.message);
+    }
+  });
+
+  function openStatusModal(userId, newStatus, name) {
+    pendingAction = { userId, newStatus, name };
+    const labels = { active: "Reinstate", suspended: "Suspend", banned: "Boot (ban)" };
+    document.getElementById("modal-title").textContent = `${labels[newStatus]} ${name}?`;
+    document.getElementById("modal-reason").value = "";
+
+    const warningEl = document.getElementById("modal-warning");
+    if (newStatus === "banned") {
+      warningEl.textContent = "Banning is the most severe action — the user loses access entirely until manually reinstated.";
+      warningEl.style.display = "block";
+    } else {
+      warningEl.style.display = "none";
+    }
+
+    document.getElementById("modal-backdrop").classList.add("open");
+  }
+
+  document.getElementById("modal-cancel").addEventListener("click", () => {
+    document.getElementById("modal-backdrop").classList.remove("open");
+  });
+
+  document.getElementById("modal-confirm").addEventListener("click", async () => {
+    if (!pendingAction) return;
+    const reason = document.getElementById("modal-reason").value;
+    try {
+      await api.adminSetUserStatus(pendingAction.userId, pendingAction.newStatus, reason || null);
+      document.getElementById("modal-backdrop").classList.remove("open");
+      await loadUsers();
+    } catch (e) {
+      await systemAlert(e.message);
+    }
+  });
+
+  document.getElementById("search-input").addEventListener("input", () => {
+    clearTimeout(window._searchDebounce);
+    window._searchDebounce = setTimeout(loadUsers, 300);
+  });
+  document.getElementById("status-filter").addEventListener("change", loadUsers);
+
+  loadUsers();
+</script>
+</body>
+</html>

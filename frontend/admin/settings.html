@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Platform Settings — Admin — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .admin-body { padding: 32px; max-width: 900px; margin: 0 auto; }
+  .warning-banner { background: #fbe9e5; border-radius: 10px; padding: 14px 18px; font-size: 13px; color: var(--ink-700); line-height: 1.55; margin-bottom: 22px; }
+
+  .key-category { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold-600); font-weight: 700; margin: 22px 0 10px; }
+  .key-category:first-child { margin-top: 0; }
+  .key-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--cream-dim); }
+  .key-row:first-of-type { border-top: none; }
+  .key-label { flex: 0 0 220px; font-size: 13px; font-weight: 600; }
+  .key-input { flex: 1; padding: 8px 11px; border: 1px solid var(--olive-200); border-radius: 7px; font-size: 12.5px; }
+  .key-status { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; flex: 0 0 auto; }
+  .key-status.db { background: #e7f0e4; color: var(--success); }
+  .key-status.env { background: var(--cream-dim); color: var(--ink-700); }
+  .key-status.unset { background: #fbe9e5; color: var(--danger); }
+</style>
+</head>
+<body>
+<div id="admin-nav-mount" data-active="settings"></div>
+
+<div class="admin-body">
+  <div class="page-title display" style="margin-bottom:6px;">Platform Settings</div>
+  <div class="page-sub" style="margin-bottom:0;">Shared infrastructure keys — DeepSeek, Supabase, OAuth app registrations, Twilio, Hermes.</div>
+
+  <div class="warning-banner">
+    ⚠️ These keys are shared across <strong>every organization</strong> on the platform, not just one — that's why they're admin-only rather than in each user's own Settings. A change here affects every customer immediately.
+  </div>
+
+  <div class="card" style="padding:24px;" id="platform-keys-container">Loading…</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/admin-nav.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  async function loadPlatformKeys() {
+    const keys = await api.listPlatformKeys();
+    const categories = [...new Set(keys.map((k) => k.category))];
+    const container = document.getElementById("platform-keys-container");
+
+    container.innerHTML = categories
+      .map(
+        (cat) => `
+      <div class="key-category">${cat}</div>
+      ${keys.filter((k) => k.category === cat).map((k) => renderKeyRow(k)).join("")}`
+      )
+      .join("");
+
+    wireEvents();
+  }
+
+  function keyStatus(k) {
+    if (k.is_set_in_db) return { cls: "db", label: "Set here" };
+    if (k.is_set_in_env) return { cls: "env", label: "Set in .env" };
+    return { cls: "unset", label: "Not set" };
+  }
+
+  function renderKeyRow(k) {
+    const status = keyStatus(k);
+    const currentValue = k.is_set_in_db && !k.secret ? k.display_value : "";
+    return `
+      <div class="key-row">
+        <div class="key-label">${k.label}</div>
+        <input class="key-input" id="key-input-${k.key}" type="${k.secret ? "password" : "text"}"
+          placeholder="${k.secret && k.is_set_in_db ? k.display_value : "Not set"}" value="${currentValue || ""}" />
+        <span class="key-status ${status.cls}">${status.label}</span>
+        <button class="btn btn-outline" data-save-key="${k.key}" style="font-size:11px; padding:5px 10px;">Save</button>
+        ${k.is_set_in_db ? `<button class="btn btn-outline" data-clear-key="${k.key}" style="font-size:11px; padding:5px 10px; color:var(--danger); border-color:var(--danger);">Clear</button>` : ""}
+      </div>`;
+  }
+
+  function wireEvents() {
+    document.querySelectorAll("[data-save-key]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const key = btn.dataset.saveKey;
+        const value = document.getElementById(`key-input-${key}`).value.trim();
+        if (!value) return systemAlert("Enter a value first.");
+        btn.disabled = true;
+        try {
+          await api.setPlatformKey(key, value);
+          await loadPlatformKeys();
+        } catch (e) {
+          await systemAlert(e.message);
+          btn.disabled = false;
+        }
+      });
+    });
+    document.querySelectorAll("[data-clear-key]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const ok = await systemConfirm("Remove this platform key? Every org falls back to the .env default, if any.", { danger: true, confirmLabel: "Clear" });
+        if (!ok) return;
+        await api.deletePlatformKey(btn.dataset.clearKey);
+        await loadPlatformKeys();
+      });
+    });
+  }
+
+  loadPlatformKeys();
+</script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ask Athena — Admin — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  body { background: var(--olive-900); }
+  .chat-shell { max-width: 780px; margin: 0 auto; height: calc(100vh - 60px); display: flex; flex-direction: column; }
+  .chat-intro { padding: 28px 24px 16px; color: rgba(244,240,230,0.7); font-size: 13px; line-height: 1.6; }
+  .chat-intro strong { color: var(--gold-400); }
+  .chat-scroll { flex: 1; overflow-y: auto; padding: 0 24px; display: flex; flex-direction: column; gap: 14px; }
+
+  .msg-row { display: flex; gap: 10px; max-width: 88%; }
+  .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display:flex; align-items:center; justify-content:center; font-size: 14px; }
+  .msg-avatar.athena { background: var(--gold-500); }
+  .msg-avatar.user { background: rgba(244,240,230,0.15); }
+  .msg-bubble { background: rgba(244,240,230,0.06); border: 1px solid rgba(244,240,230,0.12); border-radius: 12px; padding: 12px 15px; font-size: 14px; line-height: 1.55; color: #fff; white-space: pre-wrap; }
+  .msg-row.user .msg-bubble { background: var(--gold-500); color: var(--ink-900); border-color: transparent; }
+
+  .composer { padding: 18px 24px 24px; }
+  .composer-inner { display: flex; gap: 10px; background: rgba(244,240,230,0.06); border: 1px solid rgba(244,240,230,0.14); border-radius: 12px; padding: 8px 8px 8px 16px; }
+  .composer-inner textarea { flex: 1; border: none; background: transparent; resize: none; font-family: var(--font-body); font-size: 14px; color: #fff; padding: 6px 0; outline: none; }
+  .composer-inner textarea::placeholder { color: rgba(244,240,230,0.4); }
+</style>
+</head>
+<body>
+<div id="admin-nav-mount" data-active="athena"></div>
+
+<div class="chat-shell">
+  <div class="chat-intro">
+    Your Athena — full platform access through a fixed set of admin tools (never raw database access), and every destructive action (suspend, ban, plan changes, deactivation) requires you to explicitly confirm before it happens. <strong>Everything logged to the Audit Log</strong>, whether you click a button elsewhere or ask here.
+  </div>
+  <div class="chat-scroll" id="chat-scroll"></div>
+  <div class="composer">
+    <div class="composer-inner">
+      <textarea id="chat-input" rows="1" placeholder="e.g. 'How many active orgs on the Heavy tier?' or 'Suspend the user at test@spam.com for abuse'"></textarea>
+      <button class="btn btn-primary" id="send-btn" style="padding: 10px 18px;">Send</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/admin-nav.js"></script>
+<script>
+  auth.requireAuth();
+
+  const chatScroll = document.getElementById("chat-scroll");
+  const input = document.getElementById("chat-input");
+
+  function addMessage(text, role) {
+    const row = document.createElement("div");
+    row.className = `msg-row ${role}`;
+    row.innerHTML = `<div class="msg-avatar ${role}">${role === "user" ? "A" : "🦉"}</div><div class="msg-bubble"></div>`;
+    row.querySelector(".msg-bubble").textContent = text;
+    chatScroll.appendChild(row);
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }
+
+  // Same persistence rule as the regular chat — this conversation is never
+  // lost on reload, only reset if you explicitly ask (there's no reset
+  // button here yet; the admin agent's history is meant to stay long-lived
+  // as an ongoing record of everything asked of "god mode").
+  async function loadHistory() {
+    const conv = await api.getActiveConversation("admin_agent");
+    const messages = await api.getConversationMessages(conv.id);
+    messages
+      .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
+      .forEach((m) => addMessage(m.content, m.role === "user" ? "user" : "athena"));
+  }
+
+  async function handleSend() {
+    const text = input.value.trim();
+    if (!text) return;
+    addMessage(text, "user");
+    input.value = "";
+
+    const btn = document.getElementById("send-btn");
+    btn.disabled = true;
+    btn.textContent = "…";
+
+    try {
+      const result = await api.adminAgentChat(text);
+      addMessage(result.reply, "athena");
+    } catch (e) {
+      addMessage(`Error: ${e.message}`, "athena");
+    }
+
+    btn.disabled = false;
+    btn.textContent = "Send";
+  }
+
+  document.getElementById("send-btn").addEventListener("click", handleSend);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+
+  loadHistory();
+</script>
+</body>
+</html>

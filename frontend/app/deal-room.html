@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deal Room — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+.deal-hero { padding: 0 0 20px; animation: fade-up 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+.deal-hero h1 { font-family: var(--font-display); font-size: 28px; font-weight: 700; }
+.deal-hero p { color: var(--ink-500); font-size: 14px; margin-top: 4px; }
+.client-selector { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; animation: fade-up 0.6s 0.05s both; }
+.client-selector select { flex: 1; min-width: 200px; padding: 12px 14px; border: 1px solid var(--olive-200); border-radius: 12px; font-size: 14px; font-family: var(--font-body); background: #fff; color: var(--ink-700); outline: none; }
+.client-selector select:focus { border-color: var(--gold-500); }
+
+.deal-empty { text-align: center; padding: 60px 20px; color: var(--ink-500); font-size: 14px; animation: fade-up 0.5s 0.1s both; }
+.deal-empty .big-icon { font-size: 48px; margin-bottom: 16px; }
+.deal-empty h2 { font-family: var(--font-display); font-size: 20px; color: var(--ink-700); margin-bottom: 8px; }
+
+.deal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.deal-card { background: #fff; border: 1px solid var(--olive-200); border-radius: 16px; padding: 1px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); animation: fade-up 0.5s both; }
+.deal-card:hover { border-color: var(--gold-300); }
+.deal-card-inner { border-radius: 15px; padding: 22px 24px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+.deal-card h3 { font-size: 13.5px; font-weight: 700; color: var(--ink-700); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+.stat-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.stat-item { flex: 1; min-width: 70px; }
+.stat-item .val { font-family: var(--font-display); font-size: 24px; font-weight: 700; line-height: 1.2; }
+.stat-item .lbl { font-size: 11px; color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; font-weight: 600; }
+
+.activity-timeline { position: relative; padding-left: 20px; }
+.activity-timeline::before { content: ''; position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: var(--olive-200); }
+.at-item { position: relative; padding: 8px 0 8px 16px; font-size: 13px; color: var(--ink-600); border-bottom: 1px solid var(--cream-dim); }
+.at-item:last-child { border-bottom: none; }
+.at-item::before { content: ''; position: absolute; left: -16px; top: 12px; width: 10px; height: 10px; border-radius: 50%; background: var(--gold-500); border: 2px solid #fff; }
+.at-item.note::before { background: var(--olive-500); }
+.at-item.message::before { background: var(--gold-500); }
+.at-item.property::before { background: var(--olive-800); }
+.at-time { font-size: 11px; color: var(--ink-400); }
+.at-text { font-weight: 500; }
+
+.item-row { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--cream-dim); font-size: 13px; align-items: flex-start; }
+.item-row:first-child { border-top: none; }
+.item-icon { width: 20px; flex-shrink: 0; text-align: center; }
+.item-title { font-weight: 600; color: var(--ink-700); }
+.item-meta { font-size: 11.5px; color: var(--ink-500); margin-top: 1px; }
+
+.sentiment-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.sentiment-dot.positive { background: var(--success); }
+.sentiment-dot.neutral { background: var(--gold-500); }
+.sentiment-dot.negative { background: var(--danger); }
+
+.tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 10px; border-radius: 99px; margin: 2px; }
+.tag.gold { background: var(--gold-100); color: var(--gold-600); }
+.tag.olive { background: rgba(61,90,61,0.1); color: var(--olive-800); }
+.tag.teal { background: rgba(80,200,120,0.1); color: var(--olive-700); }
+
+.temp-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.temp-hot { background: var(--danger); }
+.temp-warm { background: var(--gold-500); }
+.temp-cold { background: var(--ink-400); }
+
+@keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="dealroom"></aside>
+  <div class="main-col">
+    <div class="page-body">
+      <div class="deal-hero">
+        <h1>Deal Room</h1>
+        <p>Everything about a client — profile, activity, properties, messages — in one place.</p>
+      </div>
+
+      <div class="client-selector">
+        <select id="client-select"><option value="">Select a client…</option></select>
+        <button class="btn btn-primary" id="load-deal-btn" style="padding:12px 24px;">Load Deal</button>
+      </div>
+
+      <div id="deal-content"></div>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script>
+  auth.requireAuth();
+
+  async function loadClients() {
+    const select = document.getElementById("client-select");
+    try {
+      const clients = await api.listClients();
+      select.innerHTML = '<option value="">Select a client…</option>' + clients.map(c => '<option value="' + c.id + '">' + c.name + ' — ' + (c.email || c.phone || "no contact") + '</option>').join("");
+
+      // Check URL for ?id=
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+      if (id) { select.value = id; loadDeal(id); }
+    } catch(e) {
+      select.innerHTML += '<option value="" disabled>Failed to load clients</option>';
+    }
+  }
+
+  document.getElementById("load-deal-btn").addEventListener("click", () => {
+    const id = document.getElementById("client-select").value;
+    if (!id) return alert("Select a client first.");
+    loadDeal(id);
+  });
+
+  async function loadDeal(id) {
+    const token = await auth.getToken();
+    const content = document.getElementById("deal-content");
+    content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--ink-500);">Loading deal room...</div>';
+
+    const res = await fetch(window.REALTYAI_API_BASE + "/deal-room/" + id, { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) { content.innerHTML = '<div class="deal-empty"><div class="big-icon">⚠️</div><h2>Could not load deal</h2><p>Check that the client exists and try again.</p></div>'; return; }
+    const d = await res.json();
+    renderDeal(d);
+  }
+
+  function renderDeal(d) {
+    const c = d.client;
+    const content = document.getElementById("deal-content");
+
+    let html = '<div class="deal-grid">';
+
+    // Profile card
+    html += '<div class="deal-card" style="animation-delay:0.05s"><div class="deal-card-inner"><h3>👤 Profile</h3>'
+      + '<div style="margin-bottom:12px;"><strong style="font-size:18px;">' + c.name + '</strong></div>'
+      + '<div class="stat-row">'
+      + '<div class="stat-item"><div class="val" style="text-transform:capitalize;">' + (c.pipeline_stage || "—").replace(/_/g," ") + '</div><div class="lbl">Stage</div></div>'
+      + '<div class="stat-item"><div class="val"><span class="temp-indicator temp-' + c.lead_temperature + '"></span>' + c.lead_temperature + '</div><div class="lbl">Lead Temp</div></div>'
+      + '<div class="stat-item"><div class="val">$' + (c.deal_value && typeof c.deal_value === "number" ? c.deal_value.toLocaleString() : "—") + '</div><div class="lbl">Deal Value</div></div>'
+      + '<div class="stat-item"><div class="val" style="color:' + (c.days_since_last_contact > 7 ? "var(--danger)" : c.days_since_last_contact > 3 ? "var(--gold-600)" : "var(--success)") + '">' + c.days_since_last_contact + 'd</div><div class="lbl">Silent</div></div>'
+      + '</div>'
+      + '<div style="margin-top:12px;display:flex;gap:4px;flex-wrap:wrap;">' + (c.tags || []).map(t => '<span class="tag gold">' + t + '</span>').join("") + '</div>'
+      + (c.phone ? '<p style="margin-top:10px;font-size:13px;color:var(--ink-500);">📞 ' + c.phone + '</p>' : '')
+      + '</div></div>';
+
+    // Activity timeline
+    html += '<div class="deal-card" style="animation-delay:0.1s"><div class="deal-card-inner"><h3>📋 Activity</h3><div class="activity-timeline">'
+      + (d.timeline && d.timeline.length ? d.timeline.map(a => '<div class="at-item ' + a.type + '"><div class="at-text">' + a.summary + '</div><div class="at-time">' + (a.timestamp ? a.timestamp.slice(0,10) : '') + '</div></div>').join("") : '<div style="font-size:13px;color:var(--ink-500);">No activity yet.</div>')
+      + '</div></div></div>';
+
+    // Properties
+    html += '<div class="deal-card" style="animation-delay:0.15s"><div class="deal-card-inner"><h3>🏡 Properties</h3>'
+      + (!d.matched_properties.length ? '<div style="font-size:13px;color:var(--ink-500);padding:8px 0;">No properties linked.</div>'
+        : d.matched_properties.map(p => '<div class="item-row">' + (p.thumbnail_url ? '<img src="' + p.thumbnail_url + '" style="width:56px;height:42px;border-radius:6px;object-fit:cover;flex-shrink:0;">' : '<span class="item-icon">🏠</span>')
+          + '<div style="flex:1;"><div class="item-title">' + p.address + '</div><div class="item-meta">$' + (p.price || "—").toLocaleString() + ' · ' + (p.status || "active") + '</div></div></div>').join(""))
+      + '</div></div>';
+
+    // Messages + Sentiment
+    html += '<div class="deal-card" style="animation-delay:0.2s"><div class="deal-card-inner"><h3>📬 Messages</h3>'
+      + '<div style="margin-bottom:12px;font-size:13px;"><strong>' + d.recent_messages.length + '</strong> messages</div>'
+      + (!d.recent_messages.length ? '<div style="font-size:13px;color:var(--ink-500);">No messages yet.</div>'
+        : d.recent_messages.map(m => '<div class="item-row"><span class="item-icon">💬</span><div style="flex:1;"><div class="item-title">' + (m.from_name || "Unknown") + '</div><div class="item-meta">' + (m.body || "").slice(0,80) + ((m.body||"").length > 80 ? "..." : "") + '</div></div></div>').join(""))
+      + '</div></div>';
+
+    // Documents
+    html += '<div class="deal-card" style="animation-delay:0.25s"><div class="deal-card-inner"><h3>📄 Documents</h3>'
+      + (!d.documents.length ? '<div style="font-size:13px;color:var(--ink-500);padding:8px 0;">No documents.</div>'
+        : d.documents.map(doc => '<div class="item-row"><span class="item-icon">📄</span><div style="flex:1;"><div class="item-title">' + (doc.title || "Untitled") + '</div><div class="item-meta">' + (doc.status || "draft") + ' · ' + (doc.created_at || "") + '</div></div></div>').join(""))
+      + '</div></div>';
+
+    html += '</div>'; // end grid
+
+    content.innerHTML = html;
+  }
+
+  loadClients();
+</script>
+</body>
+</html>

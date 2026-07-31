@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Clients — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+  .toolbar input, .toolbar select { padding: 9px 12px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13px; }
+  .toolbar input { flex: 1; min-width: 200px; max-width: 320px; }
+  .toolbar .spacer { flex: 1; }
+
+  .temp-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .temp-dot.hot { background: var(--danger); }
+  .temp-dot.warm { background: var(--gold-500); }
+  .temp-dot.cold { background: var(--olive-500); }
+
+  .stage-pill { font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; background: var(--cream-dim); color: var(--ink-700); }
+  .score-bar-mini { width: 50px; height: 5px; background: var(--cream-dim); border-radius: 99px; overflow: hidden; display: inline-block; margin-left: 6px; vertical-align: middle; }
+  .score-fill-mini { height: 100%; background: var(--gold-500); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-500); padding: 10px 12px; border-bottom: 1px solid var(--olive-200); }
+  td { padding: 12px; font-size: 13.5px; border-bottom: 1px solid var(--cream-dim); vertical-align: middle; }
+  tr.client-row { cursor: pointer; }
+  tr.client-row:hover { background: var(--cream-dim); }
+  tr:last-child td { border-bottom: none; }
+
+  .tag-chip { font-size: 10.5px; background: var(--gold-100); color: var(--gold-600); padding: 2px 8px; border-radius: 99px; margin-right: 3px; }
+
+  .duplicates-banner { background: var(--gold-100); border: 1px solid var(--gold-400); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--gold-600); font-weight: 600; margin-bottom: 18px; cursor: pointer; }
+
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(36,31,24,0.4); align-items: center; justify-content: center; z-index: 50; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 26px; width: 420px; max-width: 90vw; }
+  .modal h3 { margin-bottom: 14px; }
+  .modal input, .modal select { width: 100%; padding: 10px 12px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="clients"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Clients</div>
+      <div class="page-sub">Your CRM — pipeline, timeline, and AI-assisted follow-up, all in one place.</div>
+
+      <div id="duplicates-banner" class="duplicates-banner" style="display:none;"></div>
+
+      <div class="toolbar">
+        <input type="text" id="search-input" placeholder="Search name, email, phone…" />
+        <select id="stage-filter"><option value="">All stages</option></select>
+        <select id="temp-filter">
+          <option value="">All temperatures</option>
+          <option value="hot">🔴 Hot</option>
+          <option value="warm">🟡 Warm</option>
+          <option value="cold">🔵 Cold</option>
+        </select>
+        <div class="spacer"></div>
+        <a href="/app/inbox.html?ask=Which%20of%20my%20clients%20need%20attention%20today%2C%20and%20why%3F" class="btn btn-outline">🦉 Ask Athena who needs attention</a>
+        <a href="/app/pipeline.html" class="btn btn-outline">Pipeline view</a>
+        <button class="btn btn-outline" id="check-stale-btn">Check stale leads</button>
+        <button class="btn btn-primary" id="new-client-btn">+ New Client</button>
+      </div>
+
+      <div class="card" style="padding:0;">
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Stage</th><th>Temp</th><th>Budget</th><th>Score</th><th>Last contact</th><th>Tags</th></tr>
+          </thead>
+          <tbody id="client-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <h3 class="display">New client</h3>
+    <input type="text" id="new-name" placeholder="Full name" />
+    <input type="email" id="new-email" placeholder="Email" />
+    <input type="tel" id="new-phone" placeholder="Phone" />
+    <select id="new-type">
+      <option value="buyer">Buyer</option>
+      <option value="seller">Seller</option>
+      <option value="both">Both</option>
+    </select>
+    <input type="number" id="new-budget" placeholder="Budget max ($)" />
+    <input type="text" id="new-city" placeholder="Preferred city" />
+    <input type="text" id="new-source" placeholder="Lead source (e.g. referral, Zillow, open house)" />
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="modal-create">Create</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  function timeAgo(dateStr) {
+    if (!dateStr) return "never";
+    const diff = (Date.now() - new Date(dateStr).getTime()) / 86400000;
+    if (diff < 1) return "today";
+    if (diff < 30) return `${Math.floor(diff)}d ago`;
+    return `${Math.floor(diff / 30)}mo ago`;
+  }
+
+  async function loadMeta() {
+    const meta = await api.clientsMeta();
+    const stageSelect = document.getElementById("stage-filter");
+    meta.pipeline_stages.forEach((s) => {
+      const opt = document.createElement("option");
+      opt.value = s;
+      opt.textContent = s.replace("_", " ");
+      stageSelect.appendChild(opt);
+    });
+  }
+
+  async function loadDuplicates() {
+    const pairs = await api.getClientDuplicates();
+    const banner = document.getElementById("duplicates-banner");
+    if (pairs.length > 0) {
+      banner.textContent = `⚠️ ${pairs.length} potential duplicate contact${pairs.length === 1 ? "" : "s"} found — click to review and merge.`;
+      banner.style.display = "block";
+      banner.onclick = () => showDuplicatesModal(pairs);
+    }
+  }
+
+  function showDuplicatesModal(pairs) {
+    const existing = document.getElementById("dup-modal-backdrop");
+    if (existing) existing.remove();
+
+    const modal = document.createElement("div");
+    modal.id = "dup-modal-backdrop";
+    modal.className = "modal-backdrop open";
+    modal.innerHTML = `
+      <div class="modal" style="width:520px;">
+        <h3 class="display">Possible duplicates</h3>
+        <div style="max-height:400px; overflow-y:auto;">
+          ${pairs
+            .map(
+              (p, i) => `
+            <div style="border:1px solid var(--olive-200); border-radius:10px; padding:12px 14px; margin-bottom:10px; font-size:13px;">
+              <div style="margin-bottom:8px;"><strong>${p.client_a.name}</strong> (${p.client_a.email || "no email"}) ↔ <strong>${p.client_b.name}</strong> (${p.client_b.email || "no email"}) — ${Math.round(p.confidence * 100)}% match</div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-outline" style="font-size:11.5px; padding:5px 10px;" data-primary="${p.client_a.id}" data-dup="${p.client_b.id}">Keep "${p.client_a.name}"</button>
+                <button class="btn btn-outline" style="font-size:11.5px; padding:5px 10px;" data-primary="${p.client_b.id}" data-dup="${p.client_a.id}">Keep "${p.client_b.name}"</button>
+              </div>
+            </div>`
+            )
+            .join("")}
+        </div>
+        <div class="modal-actions"><button class="btn btn-outline" id="dup-modal-close">Close</button></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelectorAll("[data-primary]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        await api.mergeClients(btn.dataset.primary, btn.dataset.dup);
+        modal.remove();
+        loadClients();
+        loadDuplicates();
+      });
+    });
+    document.getElementById("dup-modal-close").addEventListener("click", () => modal.remove());
+  }
+
+  async function loadClients() {
+    const filters = {
+      search: document.getElementById("search-input").value.trim(),
+      pipeline_stage: document.getElementById("stage-filter").value,
+      lead_temperature: document.getElementById("temp-filter").value,
+    };
+    const clients = await api.listClients(filters);
+    const rows = document.getElementById("client-rows");
+
+    if (!clients.length) {
+      rows.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--ink-500);">No clients yet. Add one, or import from your CRM.</td></tr>`;
+      return;
+    }
+
+    rows.innerHTML = clients
+      .map(
+        (c) => `
+      <tr class="client-row" data-id="${c.id}">
+        <td><strong>${c.name}</strong><div style="font-size:11.5px; color:var(--ink-500);">${c.email || c.phone || ""}</div></td>
+        <td><span class="stage-pill">${c.pipeline_stage.replace("_", " ")}</span></td>
+        <td><span class="temp-dot ${c.lead_temperature}"></span>${c.lead_temperature}</td>
+        <td>${c.budget_max ? "$" + c.budget_max.toLocaleString() : "—"}</td>
+        <td>${c.engagement_score != null ? c.engagement_score.toFixed(0) : "—"}<span class="score-bar-mini"><span class="score-fill-mini" style="width:${c.engagement_score || 0}%"></span></span></td>
+        <td>${timeAgo(c.last_contacted_at)}</td>
+        <td>${(c.tags || []).map((t) => `<span class="tag-chip">${t}</span>`).join("")}</td>
+      </tr>`
+      )
+      .join("");
+
+    rows.querySelectorAll(".client-row").forEach((row) => {
+      row.addEventListener("click", () => {
+        window.location.href = `/app/client-detail.html?id=${row.dataset.id}`;
+      });
+    });
+  }
+
+  document.getElementById("search-input").addEventListener("input", () => {
+    clearTimeout(window._d);
+    window._d = setTimeout(loadClients, 300);
+  });
+  document.getElementById("stage-filter").addEventListener("change", loadClients);
+  document.getElementById("temp-filter").addEventListener("change", loadClients);
+
+  document.getElementById("new-client-btn").addEventListener("click", () => document.getElementById("modal-backdrop").classList.add("open"));
+  document.getElementById("modal-cancel").addEventListener("click", () => document.getElementById("modal-backdrop").classList.remove("open"));
+  document.getElementById("modal-create").addEventListener("click", async () => {
+    const payload = {
+      name: document.getElementById("new-name").value,
+      email: document.getElementById("new-email").value || null,
+      phone: document.getElementById("new-phone").value || null,
+      client_type: document.getElementById("new-type").value,
+      budget_max: parseFloat(document.getElementById("new-budget").value) || null,
+      preferred_city: document.getElementById("new-city").value || null,
+      lead_source: document.getElementById("new-source").value || null,
+    };
+    if (!payload.name) return await systemAlert("Name is required.");
+    const client = await api.createClient(payload);
+    document.getElementById("modal-backdrop").classList.remove("open");
+    window.location.href = `/app/client-detail.html?id=${client.id}`;
+  });
+
+  document.getElementById("check-stale-btn").addEventListener("click", async () => {
+    const result = await api.checkStaleLeads();
+    await systemAlert(result.new_alerts > 0 ? `Found ${result.new_alerts} new stale lead await systemAlert(s) — check the Alerts tab.` : "No new stale leads found.");
+  });
+
+  loadMeta();
+  loadDuplicates();
+  loadClients();
+</script>
+</body>
+</html>

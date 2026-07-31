@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Docs — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .docs-layout { display: grid; grid-template-columns: 240px 1fr 300px; gap: 22px; align-items: start; }
+  .docs-search { padding: 11px 14px; border: 1px solid var(--olive-200); border-radius: 9px; font-size: 13.5px; width: 100%; margin-bottom: 16px; }
+  .docs-nav-category { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-500); font-weight: 700; margin: 14px 0 6px; }
+  .docs-nav-category:first-child { margin-top: 0; }
+  .docs-nav-item { padding: 8px 11px; border-radius: 7px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+  .docs-nav-item:hover { background: var(--cream-dim); }
+  .docs-nav-item.active { background: var(--gold-100); color: var(--gold-600); font-weight: 700; }
+
+  .docs-content h2 { font-family: var(--font-display); font-size: 24px; margin-bottom: 6px; }
+  .docs-content .summary { color: var(--ink-500); font-size: 14px; margin-bottom: 24px; }
+  .docs-content h3 { font-size: 14px; margin: 20px 0 10px; color: var(--gold-600); }
+  .walkthrough-step { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--cream-dim); font-size: 13.5px; line-height: 1.6; }
+  .walkthrough-step:first-child { border-top: none; }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--olive-800); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .trouble-item { background: var(--gold-100); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; font-size: 13px; line-height: 1.55; }
+
+  .athena-widget { position: sticky; top: 20px; background: linear-gradient(135deg, var(--olive-900), var(--olive-800)); border-radius: 14px; padding: 18px; color: #fff; }
+  .athena-widget h3 { font-size: 13.5px; color: var(--gold-400); margin-bottom: 10px; }
+  .athena-widget input { width: 100%; padding: 9px 11px; border-radius: 7px; border: 1px solid rgba(244,240,230,0.2); background: rgba(244,240,230,0.08); color: #fff; font-size: 12.5px; margin-bottom: 8px; }
+  .athena-widget input::placeholder { color: rgba(244,240,230,0.4); }
+  .athena-answer { font-size: 12.5px; line-height: 1.6; color: rgba(244,240,230,0.9); margin-top: 10px; white-space: pre-wrap; }
+  .athena-sources { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .athena-source-chip { font-size: 10px; background: rgba(244,240,230,0.12); padding: 2px 8px; border-radius: 99px; cursor: pointer; }
+
+  /* A real animated illustration for the Trust doc section */
+  .trust-anim { display: flex; justify-content: center; padding: 20px 0; }
+  .trust-anim-ring { width: 100px; height: 100px; border-radius: 50%; border: 10px solid var(--cream-dim); border-top-color: var(--gold-500); animation: spin-trust 2.5s linear infinite; }
+  @keyframes spin-trust { to { transform: rotate(360deg); } }
+
+  /* A real animated illustration for the Pipeline doc section */
+  .pipeline-anim { display: flex; gap: 6px; padding: 16px 0; }
+  .pipeline-anim-stage { flex: 1; height: 8px; border-radius: 99px; background: var(--cream-dim); overflow: hidden; }
+  .pipeline-anim-stage .fill { height: 100%; background: var(--gold-500); width: 0; animation: fill-stage 3s ease-in-out infinite; }
+  .pipeline-anim-stage:nth-child(2) .fill { animation-delay: 0.3s; }
+  .pipeline-anim-stage:nth-child(3) .fill { animation-delay: 0.6s; }
+  .pipeline-anim-stage:nth-child(4) .fill { animation-delay: 0.9s; }
+  @keyframes fill-stage { 0%, 20% { width: 0; } 60%, 100% { width: 100%; } }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="docs"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="docs-layout">
+        <div>
+          <input type="text" class="docs-search" id="docs-search" placeholder="Search docs…" />
+          <div id="docs-nav"></div>
+        </div>
+
+        <div class="card docs-content" id="docs-content"></div>
+
+        <div class="athena-widget">
+          <h3>🦉 Ask Athena about the system</h3>
+          <input type="text" id="athena-docs-input" placeholder="e.g. how do I connect my calendar?" />
+          <button class="btn btn-primary" id="athena-docs-btn" style="width:100%; justify-content:center; font-size:12.5px;">Ask</button>
+          <div class="athena-answer" id="athena-docs-answer"></div>
+          <div class="athena-sources" id="athena-docs-sources"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/athena-spinner.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script>
+  auth.requireAuth();
+
+  let allDocs = [];
+
+  async function loadNav() {
+    allDocs = await api.listDocs();
+    renderNav(allDocs);
+    if (allDocs.length) renderDoc(allDocs[0]);
+  }
+
+  function renderNav(docs) {
+    const categories = [...new Set(docs.map((d) => d.category))];
+    const nav = document.getElementById("docs-nav");
+    nav.innerHTML = categories
+      .map(
+        (cat) => `
+      <div class="docs-nav-category">${cat}</div>
+      ${docs
+        .filter((d) => d.category === cat)
+        .map((d) => `<div class="docs-nav-item" data-id="${d.id}">${d.icon} ${d.title}</div>`)
+        .join("")}`
+      )
+      .join("");
+
+    nav.querySelectorAll(".docs-nav-item").forEach((item) => {
+      item.addEventListener("click", () => {
+        const doc = allDocs.find((d) => d.id === item.dataset.id);
+        renderDoc(doc);
+        nav.querySelectorAll(".docs-nav-item").forEach((i) => i.classList.remove("active"));
+        item.classList.add("active");
+      });
+    });
+  }
+
+  function renderDoc(doc) {
+    if (!doc) return;
+    let animation = "";
+    if (doc.id === "trust") animation = `<div class="trust-anim"><div class="trust-anim-ring"></div></div>`;
+    if (doc.id === "clients") animation = `<div class="pipeline-anim">${Array(4).fill('<div class="pipeline-anim-stage"><div class="fill"></div></div>').join("")}</div>`;
+
+    document.getElementById("docs-content").innerHTML = `
+      <h2>${doc.icon} ${doc.title}</h2>
+      <div class="summary">${doc.summary}</div>
+      ${animation}
+      <h3>Walkthrough</h3>
+      ${doc.walkthrough.map((step, i) => `<div class="walkthrough-step"><div class="step-num">${i + 1}</div><div>${step}</div></div>`).join("")}
+      ${
+        doc.troubleshooting.length
+          ? `<h3>Troubleshooting</h3>${doc.troubleshooting.map((t) => `<div class="trouble-item">${t}</div>`).join("")}`
+          : ""
+      }
+    `;
+  }
+
+  document.getElementById("docs-search").addEventListener("input", async (e) => {
+    const q = e.target.value.trim();
+    const results = q ? await api.searchDocs(q) : allDocs;
+    renderNav(results);
+    if (results.length) renderDoc(results[0]);
+  });
+
+  document.getElementById("athena-docs-btn").addEventListener("click", async () => {
+    const question = document.getElementById("athena-docs-input").value.trim();
+    if (!question) return;
+    const answerEl = document.getElementById("athena-docs-answer");
+    const spinner = createAthenaSpinner(answerEl, { size: "sm" });
+    spinner.start();
+    try {
+      const result = await api.askDocs(question);
+      spinner.stop();
+      answerEl.textContent = result.answer;
+      document.getElementById("athena-docs-sources").innerHTML = result.sources
+        .map((s) => `<span class="athena-source-chip" data-id="${s.id}">${s.title}</span>`)
+        .join("");
+      document.querySelectorAll(".athena-source-chip").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          const doc = allDocs.find((d) => d.id === chip.dataset.id);
+          if (doc) renderDoc(doc);
+        });
+      });
+    } catch (e) {
+      spinner.stop();
+      answerEl.textContent = `Error: ${e.message}`;
+    }
+  });
+
+  loadNav();
+</script>
+</body>
+</html>

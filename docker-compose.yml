@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  # Optional now that Postgres lives on Supabase — only useful if you want
+  # a fully local dev loop without touching your Supabase project. Point
+  # DATABASE_URL at Supabase instead and skip this service entirely for
+  # normal development.
+  db:
+    image: postgres:16-alpine
+    container_name: realtyai_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: realtyai
+      POSTGRES_PASSWORD: realtyai
+      POSTGRES_DB: realtyai
+    ports:
+      - "5432:5432"
+    volumes:
+      - realtyai_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U realtyai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: realtyai_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://realtyai:realtyai@db:5432/realtyai
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+      - /usr/local/bin/obscura:/usr/local/bin/obscura:ro
+
+volumes:
+  realtyai_pg_data:

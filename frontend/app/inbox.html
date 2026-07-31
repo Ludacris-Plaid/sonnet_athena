@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inbox — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .inbox-layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 65px); }
+  .thread-list { border-right: 1px solid var(--olive-200); overflow-y: auto; padding: 12px; }
+  .back-to-threads-btn { display: none; }
+
+  .thread-list-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 14px; }
+  .thread-list-header h2 { font-size: 17px; }
+  .thread-item { padding: 12px; border-radius: 10px; cursor: pointer; margin-bottom: 4px; position: relative; }
+  .thread-item:hover { background: var(--cream-dim); }
+  .thread-item.active { background: var(--gold-100); }
+  .thread-item-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+  .thread-item-from { font-size: 13.5px; font-weight: 600; }
+  .thread-item-channel { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-500); }
+  .thread-item-preview { font-size: 12.5px; color: var(--ink-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .thread-item-dot { position: absolute; top: 12px; right: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--gold-500); }
+
+  /* Athena's pinned thread — visually distinct, always at the top */
+  .thread-item.athena-thread { background: linear-gradient(135deg, var(--olive-900), var(--olive-800)); color: #fff; margin-bottom: 10px; }
+  .thread-item.athena-thread:hover { background: linear-gradient(135deg, #333f24, #4a5738); }
+  .thread-item.athena-thread .thread-item-from { color: #fff; }
+  .thread-item.athena-thread .thread-item-channel { color: var(--gold-400); }
+  .thread-item.athena-thread .thread-item-preview { color: rgba(244,240,230,0.65); }
+  .thread-list-divider { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-500); font-weight: 700; padding: 10px 10px 6px; }
+
+  .convo-panel { display: flex; flex-direction: column; height: 100%; }
+  .convo-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--ink-500); font-size: 14px; }
+  .convo-header { padding: 16px 24px; border-bottom: 1px solid var(--olive-200); font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .convo-scroll { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 4px; }
+
+  .bubble-row { display: flex; margin-bottom: 6px; }
+  .bubble-row.them { justify-content: flex-start; }
+  .bubble-row.me { justify-content: flex-end; }
+  .bubble {
+    max-width: 62%; padding: 11px 15px; border-radius: 16px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap;
+  }
+  .bubble-row.them .bubble { background: var(--cream-dim); color: var(--ink-900); border-bottom-left-radius: 4px; }
+  .bubble-row.me .bubble { background: var(--gold-500); color: var(--ink-900); border-bottom-right-radius: 4px; }
+  .bubble-row.me .bubble.flagged { background: #f3c7bb; }
+  .bubble-meta { font-size: 10px; color: var(--ink-500); margin-top: 3px; padding: 0 4px; }
+  .bubble-row.me .bubble-meta { text-align: right; }
+  .bubble-flag-tag { font-size: 9.5px; font-weight: 700; text-transform: uppercase; color: var(--danger); margin-top: 4px; }
+
+  /* Draft suggestions — auto-generated the moment they're needed, and the
+     instant you pick one they collapse to just a "regenerate" link so the
+     composer (with your chosen text loaded) is the obvious next move. */
+  .draft-zone { border-top: 1px solid var(--olive-200); padding: 14px 24px; background: var(--cream-dim); }
+  .draft-zone-header { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--olive-700); margin-bottom: 10px; }
+  .draft-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .draft-chip {
+    background: #fff; border: 1px solid var(--olive-200); border-radius: 10px; padding: 8px 12px; cursor: pointer;
+    font-size: 12px; max-width: 220px; transition: border-color 0.15s;
+  }
+  .draft-chip:hover { border-color: var(--gold-500); }
+  .draft-chip .tone { font-weight: 700; text-transform: uppercase; font-size: 10px; color: var(--gold-600); margin-bottom: 3px; }
+  .draft-chip .preview { color: var(--ink-700); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .draft-chip.flagged { border-color: var(--danger); }
+  .draft-picked-note { font-size: 11.5px; color: var(--ink-500); display: flex; align-items: center; gap: 8px; }
+  .draft-picked-note a { color: var(--gold-600); cursor: pointer; text-decoration: underline; }
+  .draft-loading { font-size: 12.5px; color: var(--ink-500); font-style: italic; }
+
+  .composer { padding: 14px 24px 20px; }
+  .composer-inner { display: flex; gap: 10px; align-items: flex-end; background: #fff; border: 1px solid var(--olive-200); border-radius: 12px; padding: 8px 8px 8px 14px; }
+  .composer-inner textarea { flex: 1; border: none; outline: none; resize: none; font-family: var(--font-body); font-size: 13.5px; padding: 6px 0; max-height: 120px; }
+  .mic-btn-inline { padding: 9px 12px; font-size: 14px; }
+  .mic-btn-inline.recording { background: var(--danger); color: #fff; animation: mic-pulse 1.4s ease-in-out infinite; }
+  @keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(168,67,47,0.4); } 50% { box-shadow: 0 0 0 8px rgba(168,67,47,0); } }
+  .composer-hint { font-size: 11px; color: var(--ink-500); margin-top: 6px; padding: 0 4px; }
+
+  @media (max-width: 768px) {
+    .inbox-layout { grid-template-columns: 1fr !important; height: calc(100vh - 60px) !important; }
+    .thread-list { border-right: none; }
+    .thread-list, .convo-panel { display: none; }
+    .inbox-layout.showing-list .thread-list { display: block; }
+    .inbox-layout.showing-detail .convo-panel { display: flex; }
+    .back-to-threads-btn {
+      display: flex; align-items: center; gap: 6px; background: none; border: none;
+      font-size: 13px; font-weight: 600; color: var(--gold-600); padding: 12px 16px 0; cursor: pointer;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="inbox"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="inbox-layout showing-list" id="inbox-layout">
+      <div class="thread-list">
+        <div class="thread-list-header">
+          <h2 class="display">Inbox</h2>
+          <button class="btn btn-outline" style="padding:6px 12px; font-size:12.5px;" id="simulate-btn">+ Simulate inbound</button>
+        </div>
+        <div id="thread-items"></div>
+      </div>
+
+      <div class="convo-panel" id="convo-panel">
+        <div class="convo-empty">Select a conversation — or talk to Athena directly.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script src="../shared/athena-spinner.js"></script>
+<script src="../shared/onboarding-tour.js"></script>
+<script>
+  auth.requireAuth();
+
+  const ATHENA_KEY = "__athena__";
+  let messages = [];
+  let threads = [];
+  let selectedThreadKey = null;
+
+  function threadKeyFor(m) {
+    const counterpart = m.direction === "inbound" ? m.from_address : m.to_address;
+    return m.client_id || counterpart || "unknown";
+  }
+
+  async function loadMessages() {
+    messages = await api.listMessages();
+    buildThreads();
+    renderThreadList();
+    if (selectedThreadKey) renderConversation(selectedThreadKey);
+  }
+
+  function buildThreads() {
+    const grouped = {};
+    for (const m of messages) {
+      const key = threadKeyFor(m);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(m);
+    }
+    threads = Object.entries(grouped)
+      .map(([key, msgs]) => {
+        msgs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const last = msgs[msgs.length - 1];
+        const needsReply = last.direction === "inbound";
+        return { key, msgs, last, needsReply, contact: last.direction === "inbound" ? last.from_address : last.to_address, channel: last.channel };
+      })
+      .sort((a, b) => new Date(b.last.created_at) - new Date(a.last.created_at));
+  }
+
+  function renderThreadList() {
+    const container = document.getElementById("thread-items");
+    let html = `
+      <div class="thread-item athena-thread ${selectedThreadKey === ATHENA_KEY ? "active" : ""}" data-key="${ATHENA_KEY}">
+        <div class="thread-item-top"><span class="thread-item-from">🦉 Talk to Athena</span></div>
+        <div class="thread-item-preview">Chat or voice — your own conversation with her, always here</div>
+      </div>
+      <div class="thread-list-divider">Client Conversations</div>
+    `;
+
+    html += threads.length
+      ? threads
+          .map(
+            (t) => `
+      <div class="thread-item ${t.key === selectedThreadKey ? "active" : ""}" data-key="${t.key}">
+        ${t.needsReply ? '<span class="thread-item-dot"></span>' : ""}
+        <div class="thread-item-top">
+          <span class="thread-item-from">${t.contact || "Unknown"}</span>
+          <span class="thread-item-channel">${t.channel}</span>
+        </div>
+        <div class="thread-item-preview">${(t.last.body || "").slice(0, 60)}</div>
+      </div>`
+          )
+          .join("")
+      : `<div style="padding:16px 10px; font-size:12.5px; color:var(--ink-500);">No client conversations yet. Try "Simulate inbound" to see how it flows.</div>`;
+
+    document.getElementById("thread-items").innerHTML = html;
+
+    document.querySelectorAll(".thread-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        selectedThreadKey = el.dataset.key;
+        renderThreadList();
+        renderConversation(selectedThreadKey);
+        document.getElementById("inbox-layout").classList.remove("showing-list");
+        document.getElementById("inbox-layout").classList.add("showing-detail");
+      });
+    });
+  }
+
+  function renderConversation(key) {
+    if (key === ATHENA_KEY) {
+      return renderAthenaChat();
+    } else {
+      return Promise.resolve(renderClientThread(key));
+    }
+  }
+
+  function backToList() {
+    document.getElementById("inbox-layout").classList.remove("showing-detail");
+    document.getElementById("inbox-layout").classList.add("showing-list");
+  }
+
+  // ============================================================
+  // Athena's own thread — chat + voice, merged directly into Inbox
+  // ============================================================
+
+  async function renderAthenaChat() {
+    const panel = document.getElementById("convo-panel");
+    panel.innerHTML = `
+      <button class="back-to-threads-btn" id="back-to-threads-btn">← All conversations</button>
+      <div class="convo-header">
+        <span>🦉 Athena</span>
+        <button class="btn btn-outline" id="athena-new-convo-btn" style="font-size:11.5px; padding:6px 12px;">+ New conversation</button>
+      </div>
+      <div class="convo-scroll" id="convo-scroll"></div>
+      <div class="composer">
+        <div class="composer-inner">
+          <textarea id="athena-composer-input" rows="1" placeholder="Ask Athena anything, or tap the mic to talk…"></textarea>
+          <button class="btn btn-outline mic-btn-inline" id="athena-mic-btn" title="Talk to Athena">🎙️</button>
+          <button class="btn btn-outline" id="athena-optimize-btn" style="padding:9px 12px; font-size:14px;" title="Optimize this message with AI">⚡</button>
+          <button class="btn btn-outline" id="athena-go-deep-btn" style="padding:9px 12px; font-size:12px;" title="Delegate to Hermes for sustained multi-step research">🔬 Go Deep</button>
+          <button class="btn btn-primary" id="athena-send-btn" style="padding:9px 16px;">Send</button>
+        </div>
+        <div class="composer-hint" id="athena-composer-hint">Enter to send · Shift+Enter for new line · tap 🎙️ to talk · "Go Deep" hands this off to Hermes for longer, multi-step research (can take minutes)</div>
+      </div>
+    `;
+    document.getElementById("back-to-threads-btn").addEventListener("click", backToList);
+
+    const conv = await api.getActiveConversation("chat");
+    const convoMessages = await api.getConversationMessages(conv.id);
+    const scroll = document.getElementById("convo-scroll");
+    scroll.innerHTML = "";
+    convoMessages
+      .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
+      .forEach((m) => addAthenaBubble(m.content, m.role === "user" ? "me" : "them"));
+
+    wireAthenaComposer();
+    wireAthenaMic();
+    wireGoDeep();
+    wireOptimizeButton("athena-optimize-btn", "athena-composer-input");
+
+    document.getElementById("athena-new-convo-btn").addEventListener("click", async () => {
+      const ok = await systemConfirm("Start a new conversation with Athena? Your current one isn't deleted — find it later in Settings under Conversation History.");
+      if (!ok) return;
+      await api.startNewConversation("chat");
+      document.getElementById("convo-scroll").innerHTML = "";
+    });
+  }
+
+  function addAthenaBubble(text, side) {
+    const scroll = document.getElementById("convo-scroll");
+    const row = document.createElement("div");
+    row.className = `bubble-row ${side}`;
+    row.innerHTML = `<div><div class="bubble"></div></div>`;
+    row.querySelector(".bubble").textContent = text;
+    scroll.appendChild(row);
+    scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  function addAthenaThinkingIndicator() {
+    const scroll = document.getElementById("convo-scroll");
+    const row = document.createElement("div");
+    row.className = "bubble-row them";
+    row.id = "athena-thinking-row";
+    row.innerHTML = `<div id="athena-thinking-mount" style="padding:14px 4px;"></div>`;
+    scroll.appendChild(row);
+    scroll.scrollTop = scroll.scrollHeight;
+
+    const spinner = createAthenaSpinner(document.getElementById("athena-thinking-mount"), { size: "lg", messages: true });
+    spinner.start();
+    return () => { spinner.stop(); row.remove(); };
+  }
+
+  function wireAthenaComposer() {
+    const input = document.getElementById("athena-composer-input");
+    const sendBtn = document.getElementById("athena-send-btn");
+
+    async function send() {
+      const text = input.value.trim();
+      if (!text) return;
+      addAthenaBubble(text, "me");
+      input.value = "";
+      sendBtn.disabled = true;
+      const stopThinking = addAthenaThinkingIndicator();
+      try {
+        const result = await api.chat(text);
+        stopThinking();
+        addAthenaBubble(result.reply, "them");
+      } catch (e) {
+        stopThinking();
+        addAthenaBubble(`Something went wrong: ${e.message}`, "them");
+      }
+      sendBtn.disabled = false;
+    }
+
+    sendBtn.addEventListener("click", send);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+  }
+
+  function wireAthenaMic() {
+    const micBtn = document.getElementById("athena-mic-btn");
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    async function startRecording() {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+      mediaRecorder.onstop = handleStop;
+      mediaRecorder.start();
+      isRecording = true;
+      micBtn.classList.add("recording");
+      document.getElementById("athena-composer-hint").textContent = "Listening… tap the mic again to stop";
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach((t) => t.stop());
+      }
+      isRecording = false;
+      micBtn.classList.remove("recording");
+    }
+
+    async function handleStop() {
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
+      micBtn.classList.add("thinking");
+      document.getElementById("athena-composer-hint").textContent = "Athena is listening back and thinking…";
+      const stopThinking = addAthenaThinkingIndicator();
+      try {
+        const result = await api.converseVoice(blob);
+        stopThinking();
+        addAthenaBubble(result.transcript, "me");
+        addAthenaBubble(result.reply_text, "them");
+        new Audio(api.voiceAudioUrl(result.audio_id)).play();
+      } catch (err) {
+        stopThinking();
+        addAthenaBubble(err.message.includes("not configured") ? "Voice isn't configured yet — set it up under Settings > Voice." : `Voice error: ${err.message}`, "them");
+      }
+      micBtn.classList.remove("thinking");
+      document.getElementById("athena-composer-hint").textContent = "Enter to send · Shift+Enter for new line · tap 🎙️ to talk instead of type";
+    }
+
+    micBtn.addEventListener("click", () => {
+      if (isRecording) stopRecording();
+      else startRecording().catch(() => systemAlert("Microphone access is needed for voice — check your browser's permission prompt."));
+    });
+  }
+
+  // ============================================================
+  // Client conversation threads — real messages, real drafts
+  // ============================================================
+
+  function renderClientThread(key) {
+    const thread = threads.find((t) => t.key === key);
+    const panel = document.getElementById("convo-panel");
+    if (!thread) return;
+
+    panel.innerHTML = `
+      <button class="back-to-threads-btn" id="back-to-threads-btn">← All conversations</button>
+      <div class="convo-header">
+        <span>${thread.contact || "Unknown"} <span style="font-weight:400; color:var(--ink-500); font-size:12px;">· ${thread.channel}</span></span>
+      </div>
+      <div class="convo-scroll" id="convo-scroll"></div>
+      <div id="draft-zone-container"></div>
+      <div class="composer">
+        <div class="composer-inner">
+          <textarea id="composer-input" rows="1" placeholder="Type a message…"></textarea>
+          <button class="btn btn-outline" id="composer-optimize-btn" style="padding:9px 12px; font-size:14px;" title="Optimize this message with AI">⚡</button>
+          <button class="btn btn-primary" id="composer-send-btn" style="padding:9px 16px;">Send</button>
+        </div>
+        <div class="composer-hint">You can always type and send here — not just when replying to something new.</div>
+      </div>
+    `;
+    document.getElementById("back-to-threads-btn").addEventListener("click", backToList);
+
+    const scroll = document.getElementById("convo-scroll");
+    scroll.innerHTML = thread.msgs
+      .map((m) => {
+        const side = m.direction === "inbound" ? "them" : "me";
+        return `
+        <div class="bubble-row ${side}">
+          <div>
+            <div class="bubble ${m.compliance_flagged ? "flagged" : ""}">${m.body}</div>
+            <div class="bubble-meta">${new Date(m.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}${m.compliance_flagged ? '<span class="bubble-flag-tag"> · flagged</span>' : ""}</div>
+          </div>
+        </div>`;
+      })
+      .join("");
+    scroll.scrollTop = scroll.scrollHeight;
+
+    renderDraftZone(thread);
+    wireClientComposer(thread);
+  }
+
+  async function renderDraftZone(thread) {
+    const container = document.getElementById("draft-zone-container");
+    if (!thread.needsReply) {
+      container.innerHTML = "";
+      return;
+    }
+
+    let drafts = thread.last.draft_replies || [];
+
+    // Athena's suggestions appear automatically — no button to press, no
+    // extra step. The moment there's something unanswered, she's already
+    // working on it.
+    if (!drafts.length) {
+      container.innerHTML = `<div class="draft-zone"><div id="draft-spinner-mount" style="display:flex; align-items:center; gap:10px;"></div></div>`;
+      const spinnerHolder = document.createElement("span");
+      document.getElementById("draft-spinner-mount").appendChild(spinnerHolder);
+      const spinner = createAthenaSpinner(spinnerHolder, { size: "sm" });
+      spinner.start();
+      document.getElementById("draft-spinner-mount").insertAdjacentHTML("beforeend", '<span class="draft-loading">Athena is drafting a few options…</span>');
+      try {
+        const result = await api.generateDraftsForMessage(thread.last.id);
+        thread.last.draft_replies = result.drafts;
+        drafts = result.drafts;
+      } catch (e) {
+        container.innerHTML = `<div class="draft-zone"><div class="draft-loading">Couldn't generate suggestions right now — you can still type your own reply below.</div></div>`;
+        return;
+      }
+    }
+
+    renderDraftChips(thread, drafts);
+  }
+
+  function renderDraftChips(thread, drafts) {
+    const container = document.getElementById("draft-zone-container");
+    container.innerHTML = `
+      <div class="draft-zone">
+        <div class="draft-zone-header">Athena's quick replies — pick one to load it, then edit or send</div>
+        <div class="draft-chips">
+          ${drafts
+            .map(
+              (d, i) => `
+            <div class="draft-chip ${d.compliance_risk !== "low" ? "flagged" : ""}" data-idx="${i}">
+              <div class="tone">${d.tone}${d.compliance_risk !== "low" ? " ⚠️" : ""}</div>
+              <div class="preview">${d.body}</div>
+            </div>`
+            )
+            .join("")}
+        </div>
+      </div>`;
+
+    container.querySelectorAll(".draft-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const draft = drafts[chip.dataset.idx];
+        document.getElementById("composer-input").value = draft.body;
+        document.getElementById("composer-input").focus();
+        // The other options disappear the moment you pick one — this is
+        // now "the reply you're sending," not a menu still open beside it.
+        container.innerHTML = `
+          <div class="draft-zone">
+            <div class="draft-picked-note">✓ Loaded "${draft.tone}" into the composer — edit freely, or <a id="show-drafts-again">see other options</a></div>
+          </div>`;
+        document.getElementById("show-drafts-again").addEventListener("click", () => renderDraftChips(thread, drafts));
+      });
+    });
+  }
+
+  function wireClientComposer(thread) {
+    const input = document.getElementById("composer-input");
+    const sendBtn = document.getElementById("composer-send-btn");
+    wireOptimizeButton("composer-optimize-btn", "composer-input");
+
+    async function send() {
+      const body = input.value.trim();
+      if (!body) return;
+      sendBtn.disabled = true;
+      sendBtn.textContent = "Sending…";
+      try {
+        if (thread.needsReply) {
+          // Replying to the specific pending inbound message — feeds the trust ladder.
+          const drafts = thread.last.draft_replies || [];
+          const matchingDraft = drafts.find((d) => d.body === body);
+          await api.sendReply(thread.last.id, body, !matchingDraft);
+        } else {
+          // Proactive — this thread's already been answered, or you're
+          // just following up. A real chat box lets you type any time,
+          // not only when there's something to "reply" to.
+          await api.sendNewMessage({
+            channel: thread.channel,
+            to_address: thread.contact,
+            body,
+            client_id: thread.last.client_id || null,
+          });
+        }
+        input.value = "";
+        await loadMessages();
+      } catch (e) {
+        await systemAlert(e.message);
+      }
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Send";
+    }
+
+    sendBtn.addEventListener("click", send);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+  }
+
+  function wireOptimizeButton(btnId, inputId) {
+    document.getElementById(btnId).addEventListener("click", async () => {
+      const btn = document.getElementById(btnId);
+      const input = document.getElementById(inputId);
+      const text = input.value.trim();
+      if (!text) return systemAlert("Type something first, then hit ⚡ to have Athena clean it up.");
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = "…";
+      try {
+        const result = await api.optimizeText(text);
+        input.value = result.optimized;
+      } catch (e) {
+        await systemAlert(`Couldn't optimize that: ${e.message}`);
+      }
+      btn.disabled = false;
+      btn.textContent = original;
+    });
+  }
+
+  function wireGoDeep() {
+    document.getElementById("athena-go-deep-btn").addEventListener("click", async () => {
+      const input = document.getElementById("athena-composer-input");
+      const task = input.value.trim();
+      if (!task) return systemAlert("Type what you'd like Athena to research deeply, then hit Go Deep.");
+
+      try {
+        const status = await api.hermesStatus();
+        if (!status.available) {
+          return systemAlert("Deep research (Hermes) isn't connected yet — this is optional infrastructure, not required for normal chat. Ask your platform admin to set it up if you want this.");
+        }
+      } catch (e) {
+        return systemAlert("Couldn't check deep research status right now.");
+      }
+
+      addAthenaBubble(task, "me");
+      input.value = "";
+      addAthenaBubble("On it — this can take a few minutes since it's a genuine multi-step research pass, not a quick reply. I'll have the full answer here shortly.", "them");
+
+      try {
+        const result = await api.delegateToAgent(task, "");
+        addAthenaBubble(result.result || result.reply || JSON.stringify(result), "them");
+      } catch (e) {
+        addAthenaBubble(`Deep research hit an error: ${e.message}`, "them");
+      }
+    });
+  }
+
+  // ============================================================
+  // First-time onboarding — moved here from the old Chat with
+  // Athena tab, since Inbox is now the natural landing page.
+  // ============================================================
+  (async function maybeRunOnboarding() {
+    try {
+      const status = await api.getOnboardingStatus();
+      if (!status.has_completed_onboarding) {
+        setTimeout(() => {
+          runOnboardingTour(() => api.completeOnboarding());
+        }, 600);
+      }
+    } catch (e) { /* not fatal */ }
+  })();
+
+  document.getElementById("simulate-btn").addEventListener("click", async () => {
+    await api.receiveMessage({
+      channel: "sms",
+      from_address: "+15551234567",
+      to_address: "agent",
+      body: "Hey, is the showing still on for Saturday at 4pm?",
+    });
+    await loadMessages();
+  });
+
+  loadMessages();
+
+  // Deep-link support: pages like Calendar and Search link here with
+  // ?ask=<question> to jump straight into a conversation with Athena
+  // instead of dumping the user on an empty inbox and making them find
+  // her thread and retype the question themselves.
+  (function handleAskParam() {
+    const params = new URLSearchParams(window.location.search);
+    const question = params.get("ask");
+    if (!question) return;
+
+    selectedThreadKey = ATHENA_KEY;
+    renderThreadList();
+    renderConversation(ATHENA_KEY).then(() => {
+      const input = document.getElementById("athena-composer-input");
+      if (input) input.value = question;
+    });
+    document.getElementById("inbox-layout").classList.remove("showing-list");
+    document.getElementById("inbox-layout").classList.add("showing-detail");
+  })();
+</script>
+</body>
+</html>

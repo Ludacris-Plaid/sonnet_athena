@@ -1,0 +1,189 @@
+/* App shell: sidebar + topbar, matching the existing Athena product screens */
+
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 232px;
+  background: var(--cream);
+  border-right: 1px solid var(--olive-200);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.sidebar-brand {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--olive-800);
+  padding: 6px 8px 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.sidebar-link {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border-radius: 8px;
+  font-size: 14px; font-weight: 500; color: var(--ink-700);
+  text-decoration: none;
+}
+.sidebar-link:hover { background: var(--cream-dim); }
+.sidebar-link.active { background: var(--gold-100); color: var(--gold-600); font-weight: 600; }
+.sidebar-link .ic { width: 18px; text-align: center; font-size: 15px; }
+.nav-badge {
+  margin-left: auto; background: var(--danger); color: #fff; font-size: 10.5px; font-weight: 700;
+  min-width: 18px; height: 18px; border-radius: 99px; align-items: center; justify-content: center; padding: 0 5px;
+}
+
+/* Admin area — deliberately distinct dark styling ("control room") */
+#admin-nav-mount { background: var(--olive-900); }
+.admin-nav-inner {
+  display: flex; align-items: center; gap: 32px; padding: 0 32px; height: 60px; color: #fff;
+}
+.admin-brand { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+.admin-nav-links { display: flex; gap: 4px; flex: 1; }
+.admin-nav-link {
+  padding: 8px 14px; border-radius: 8px; font-size: 13.5px; font-weight: 500;
+  color: rgba(244,240,230,0.7); text-decoration: none;
+}
+.admin-nav-link:hover { color: #fff; background: rgba(244,240,230,0.08); }
+.admin-nav-link.active { color: var(--gold-400); background: rgba(244,240,230,0.1); font-weight: 700; }
+.admin-nav-right { display: flex; align-items: center; gap: 14px; }
+.admin-logout-btn {
+  background: transparent; border: 1px solid rgba(244,240,230,0.25); color: #fff;
+  padding: 7px 14px; border-radius: 7px; font-size: 12.5px; cursor: pointer;
+}
+.admin-logout-btn:hover { border-color: rgba(244,240,230,0.5); }
+
+.sidebar-footer {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 8px; border-top: 1px solid var(--olive-200); margin-top: 8px;
+  font-size: 13px; cursor: pointer; color: var(--ink-700);
+}
+.avatar-chip {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--olive-800); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+}
+
+.main-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* --- Mobile (≤768px): the fixed sidebar becomes a slide-in drawer,
+   triggered by a hamburger button injected by sidebar.js. This is the
+   single highest-leverage mobile fix in the whole app — since app-shell.css
+   loads on every page, this one change makes navigation actually usable
+   on a phone everywhere at once, rather than needing 25 separate fixes. */
+.mobile-menu-btn { display: none; }
+
+@media (max-width: 768px) {
+  .app-shell { position: relative; }
+
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 300;
+    width: 260px; transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 40px rgba(36,31,24,0.25);
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+
+  .mobile-sidebar-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(36,31,24,0.5); z-index: 290;
+  }
+  .mobile-sidebar-backdrop.visible { display: block; }
+
+  .mobile-menu-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--olive-200);
+    background: #fff; font-size: 17px; cursor: pointer; flex-shrink: 0;
+  }
+
+  .topbar { padding: 12px 16px; gap: 10px; }
+  .topbar-search { font-size: 13px; padding: 8px 12px; }
+  .topbar-user .email { display: none; } /* keep just the name + avatar on small screens */
+
+  .page-body { padding: 16px; }
+  .card { padding: 16px; }
+  .page-title { font-size: 21px; }
+
+  /* Fixed-column "row" layouts used across many pages (stat rows, spec
+     rows, action rows) collapse to a single column on mobile — targets a
+     common naming convention rather than every page's exact selector.
+     Deliberately does NOT touch classes ending in "-grid" (e.g. the
+     calendar's 7-day week grid, or the mini-calendar widget) since those
+     multi-column layouts are intentional and would break if collapsed. */
+  [class$="-row"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Same idea for the two/three-column "sidebar + main content" page
+     layouts (Client Detail, Daily Briefing, Docs, Documents, Inbox,
+     Investment Calculator, Settings all use this "-layout" naming
+     convention) — collapses to a single stacked column. Honest caveat:
+     for Inbox and Documents specifically, this stacks the list above the
+     detail panel rather than building true mobile master-detail
+     navigation (show one panel at a time, tap to drill in) — a real
+     improvement over the completely broken two-fixed-column squeeze this
+     replaces, but not a full mobile-native navigation pattern. */
+  [class$="-layout"] {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar { width: 85vw; }
+  .admin-nav-inner { padding: 0 16px; gap: 16px; overflow-x: auto; }
+  .admin-nav-links { overflow-x: auto; }
+  .admin-brand { font-size: 14px; flex-shrink: 0; }
+}
+
+/* --- Bottom-sheet behavior for the common modal patterns repeated across
+   many pages (.modal-backdrop/.modal, and the two bespoke-but-same-shape
+   patterns on Properties and Calendar). !important is necessary here: each
+   page defines its own version of these classes in its own <style> block,
+   which loads AFTER this shared stylesheet and would otherwise win the
+   cascade on any overlapping property, silently no-op'ing this fix. */
+@media (max-width: 640px) {
+  .modal-backdrop, .prop-modal-backdrop, .day-modal-backdrop {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal, .prop-modal, .day-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 18px 18px 0 0 !important;
+    max-height: 85vh !important;
+  }
+}
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 32px; border-bottom: 1px solid var(--olive-200); background: #fff;
+}
+.topbar-search {
+  flex: 1; max-width: 640px;
+  background: var(--cream);
+  border: 1px solid var(--olive-200); border-radius: 8px;
+  padding: 10px 14px; font-size: 14px; color: var(--ink-700);
+  display: flex; align-items: center; gap: 10px;
+}
+.topbar-user { display: flex; align-items: center; gap: 10px; font-size: 13px; text-align: right; }
+.topbar-user .name { font-weight: 600; color: var(--ink-900); }
+.topbar-user .email { color: var(--ink-500); font-size: 12px; }
+
+.page-body { padding: 32px; flex: 1; overflow-y: auto; }
+.page-title { font-family: var(--font-display); font-size: 26px; margin-bottom: 6px; }
+.page-sub { color: var(--ink-500); font-size: 14px; margin-bottom: 28px; }
+
+.card {
+  background: #fff; border: 1px solid var(--olive-200); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card); padding: 22px;
+}
+
+.badge {
+  display: inline-block; font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 3px 9px; border-radius: 99px;
+}
+.badge-active { background: #e7f0e4; color: var(--success); }
+.badge-pending { background: var(--gold-100); color: var(--gold-600); }
+.badge-neutral { background: var(--cream-dim); color: var(--ink-700); }

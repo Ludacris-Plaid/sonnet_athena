@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Client — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .detail-layout { display: grid; grid-template-columns: 320px 1fr; gap: 22px; align-items: start; }
+
+  .profile-card { padding: 22px; }
+  .profile-name { font-family: var(--font-display); font-size: 22px; margin-bottom: 4px; }
+  .profile-meta { font-size: 13px; color: var(--ink-500); margin-bottom: 16px; }
+  .stage-select { width: 100%; padding: 9px 11px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+  .field-row { display: flex; justify-content: space-between; font-size: 13px; padding: 8px 0; border-top: 1px solid var(--cream-dim); }
+  .field-row:first-of-type { border-top: none; }
+  .field-row .label { color: var(--ink-500); }
+  .tag-chip { font-size: 10.5px; background: var(--gold-100); color: var(--gold-600); padding: 3px 9px; border-radius: 99px; margin: 2px 3px 2px 0; display: inline-flex; align-items: center; gap: 5px; }
+  .tag-chip .remove-tag { cursor: pointer; font-weight: 700; }
+  .add-tag-row { display: flex; gap: 6px; margin-top: 8px; }
+  .add-tag-row input { flex: 1; padding: 6px 9px; border: 1px solid var(--olive-200); border-radius: 6px; font-size: 12px; }
+
+  .ai-card { background: linear-gradient(135deg, var(--olive-900), var(--olive-800)); color: #fff; padding: 20px; border-radius: 14px; margin-bottom: 18px; }
+  .ai-card h3 { font-size: 14px; margin-bottom: 10px; color: var(--gold-400); }
+  .ai-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .ai-buttons button { font-size: 12px; padding: 8px 14px; background: rgba(244,240,230,0.1); border: 1px solid rgba(244,240,230,0.2); color: #fff; border-radius: 8px; cursor: pointer; }
+  .ai-buttons button:hover { background: rgba(244,240,230,0.18); }
+  .ai-result { font-size: 13.5px; line-height: 1.6; color: rgba(244,240,230,0.9); white-space: pre-wrap; }
+
+  .section-card { padding: 20px; margin-bottom: 16px; }
+  .section-card h3 { font-size: 14px; margin-bottom: 12px; }
+
+  .timeline-item { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--cream-dim); font-size: 13px; }
+  .timeline-item:first-child { border-top: none; }
+  .timeline-icon { flex-shrink: 0; }
+  .timeline-meta { color: var(--ink-500); font-size: 11.5px; }
+  .flag-tag { color: var(--danger); font-size: 11px; font-weight: 700; }
+
+  .note-row, .task-row { padding: 10px 0; border-top: 1px solid var(--cream-dim); font-size: 13px; }
+  .note-row:first-child, .task-row:first-child { border-top: none; }
+  .add-row { display: flex; gap: 8px; margin-top: 10px; }
+  .add-row input, .add-row textarea { flex: 1; padding: 8px 10px; border: 1px solid var(--olive-200); border-radius: 7px; font-size: 13px; }
+  .task-checkbox { margin-right: 8px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="clients"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div id="detail-layout" class="detail-layout"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  const clientId = new URLSearchParams(window.location.search).get("id");
+  let stages = [];
+
+  function fmtDate(d) { return d ? new Date(d).toLocaleString() : "—"; }
+
+  async function load() {
+    if (!clientId) {
+      document.getElementById("detail-layout").innerHTML = "<p>No client selected.</p>";
+      return;
+    }
+    const meta = await api.clientsMeta();
+    stages = meta.pipeline_stages;
+
+    const [client, timeline, notes, tasks, searches] = await Promise.all([
+      api.getClient(clientId),
+      api.getClientTimeline(clientId),
+      api.listClientNotes(clientId),
+      api.listClientTasks(clientId),
+      api.listSavedSearches(clientId),
+    ]);
+
+    render(client, timeline, notes, tasks, searches);
+  }
+
+  function render(client, timeline, notes, tasks, searches) {
+    const layout = document.getElementById("detail-layout");
+    layout.innerHTML = `
+      <div>
+        <div class="card profile-card">
+          <div class="profile-name">${client.name}</div>
+          <a href="/app/deal-room.html?id=${client.id}" style="font-size:12px; color:var(--gold-600); display:inline-block; margin-bottom:8px;">🗂️ Open Deal Room →</a>
+          <div class="profile-meta">${client.email || ""} ${client.phone ? "· " + client.phone : ""}</div>
+
+          <select class="stage-select" id="stage-select">
+            ${stages.map((s) => `<option value="${s}" ${s === client.pipeline_stage ? "selected" : ""}>${s.replace("_", " ")}</option>`).join("")}
+          </select>
+
+          <div class="field-row"><span class="label">Type</span><span>${client.client_type}</span></div>
+          <div class="field-row"><span class="label">Temperature</span><span>${client.lead_temperature}</span></div>
+          <div class="field-row"><span class="label">Budget</span><span>${client.budget_max ? "$" + client.budget_max.toLocaleString() : "—"}</span></div>
+          <div class="field-row"><span class="label">Preferred area</span><span>${client.preferred_city || "—"}</span></div>
+          <div class="field-row"><span class="label">Pre-approved</span><span>${client.pre_approved ? "Yes" : "No"}</span></div>
+          <div class="field-row"><span class="label">Lead source</span><span>${client.lead_source || "—"}</span></div>
+          <div class="field-row"><span class="label">Deal value</span><span>${client.deal_value ? "$" + client.deal_value.toLocaleString() : "—"}</span></div>
+          <div class="field-row"><span class="label">Engagement score</span><span>${client.engagement_score != null ? client.engagement_score.toFixed(0) + "/100" : "—"}</span></div>
+          <div class="field-row"><span class="label">Last contacted</span><span>${fmtDate(client.last_contacted_at)}</span></div>
+
+          <div style="margin-top:14px;">
+            <div style="font-size:12px; color:var(--ink-500); margin-bottom:6px;">Tags</div>
+            <div id="tags-container">${(client.tags || []).map((t) => `<span class="tag-chip">${t}<span class="remove-tag" data-tag="${t}">×</span></span>`).join("")}</div>
+            <div class="add-tag-row">
+              <input type="text" id="new-tag-input" placeholder="Add tag…" />
+              <button class="btn btn-outline" id="add-tag-btn" style="padding:6px 12px; font-size:12px;">Add</button>
+            </div>
+          </div>
+
+          <button class="btn btn-outline" id="recompute-score-btn" style="width:100%; justify-content:center; margin-top:16px; font-size:12.5px;">Recompute engagement score</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="ai-card">
+          <h3>🦉 Ask Athena about ${client.name.split(" ")[0]}</h3>
+          <div class="ai-buttons">
+            <button id="brief-btn">Catch me up</button>
+            <button id="next-action-btn">What should I do next?</button>
+            <button id="suggest-tags-btn">Suggest tags</button>
+          </div>
+          <div class="ai-result" id="ai-result"></div>
+        </div>
+
+        <div class="card section-card">
+          <h3>Tasks</h3>
+          <div id="tasks-container">${renderTasks(tasks)}</div>
+          <div class="add-row">
+            <input type="text" id="new-task-input" placeholder="New follow-up task…" />
+            <button class="btn btn-primary" id="add-task-btn" style="font-size:12.5px;">Add</button>
+          </div>
+        </div>
+
+        <div class="card section-card">
+          <h3>Saved searches</h3>
+          <div id="searches-container">${searches.length ? searches.map((s) => `<div class="note-row"><strong>${s.name}</strong> — ${s.city || "any city"}, ${s.min_beds || "any"}+ bd, $${(s.min_price || 0).toLocaleString()}–$${(s.max_price || 0).toLocaleString()}</div>`).join("") : '<div style="color:var(--ink-500); font-size:13px;">No saved searches yet.</div>'}</div>
+          <div class="add-row" style="flex-wrap:wrap;">
+            <input type="text" id="search-name" placeholder="Search name" style="flex:1 1 100%;" />
+            <input type="text" id="search-city" placeholder="City" />
+            <input type="number" id="search-min-beds" placeholder="Min beds" />
+            <input type="number" id="search-min-price" placeholder="Min price" />
+            <input type="number" id="search-max-price" placeholder="Max price" />
+            <button class="btn btn-primary" id="add-search-btn" style="font-size:12.5px;">Save search</button>
+          </div>
+        </div>
+
+        <div class="card section-card">
+          <h3>Notes</h3>
+          <div id="notes-container">${renderNotes(notes)}</div>
+          <div class="add-row">
+            <textarea id="new-note-input" placeholder="Add a note…" rows="2"></textarea>
+            <button class="btn btn-primary" id="add-note-btn" style="font-size:12.5px;">Add</button>
+          </div>
+        </div>
+
+        <div class="card section-card">
+          <h3>Timeline</h3>
+          <div>${renderTimeline(timeline)}</div>
+        </div>
+      </div>
+    `;
+
+    wireEvents(client);
+  }
+
+  function renderTasks(tasks) {
+    if (!tasks.length) return '<div style="color:var(--ink-500); font-size:13px;">No open tasks.</div>';
+    return tasks
+      .map(
+        (t) => `
+      <div class="task-row">
+        <input type="checkbox" class="task-checkbox" data-task-id="${t.id}" ${t.is_completed ? "checked disabled" : ""} />
+        ${t.title} ${t.due_at ? `<span style="color:var(--ink-500); font-size:11.5px;">— due ${fmtDate(t.due_at)}</span>` : ""}
+      </div>`
+      )
+      .join("");
+  }
+
+  function renderNotes(notes) {
+    if (!notes.length) return '<div style="color:var(--ink-500); font-size:13px;">No notes yet.</div>';
+    return notes.map((n) => `<div class="note-row">${n.body}<div class="timeline-meta">${fmtDate(n.created_at)}</div></div>`).join("");
+  }
+
+  function renderTimeline(events) {
+    if (!events.length) return '<div style="color:var(--ink-500); font-size:13px;">No activity yet.</div>';
+    const icons = { message: "💬", note: "📝", stage_change: "➡️", tag_added: "🏷️", created: "✨", merged: "🔗" };
+    return events
+      .map(
+        (e) => `
+      <div class="timeline-item">
+        <span class="timeline-icon">${icons[e.type] || "•"}</span>
+        <div>
+          <div>${e.summary}${e.compliance_flagged ? ' <span class="flag-tag">⚠ flagged</span>' : ""}</div>
+          <div class="timeline-meta">${fmtDate(e.timestamp)}${e.channel ? " · " + e.channel : ""}</div>
+        </div>
+      </div>`
+      )
+      .join("");
+  }
+
+  function wireEvents(client) {
+    document.getElementById("stage-select").addEventListener("change", async (e) => {
+      await api.changeClientStage(client.id, e.target.value);
+    });
+
+    document.getElementById("recompute-score-btn").addEventListener("click", async () => {
+      await api.recomputeClientScore(client.id);
+      load();
+    });
+
+    document.getElementById("add-tag-btn").addEventListener("click", async () => {
+      const tag = document.getElementById("new-tag-input").value.trim();
+      if (!tag) return;
+      await api.addClientTag(client.id, tag);
+      load();
+    });
+    document.querySelectorAll(".remove-tag").forEach((el) => {
+      el.addEventListener("click", async () => {
+        await api.removeClientTag(client.id, el.dataset.tag);
+        load();
+      });
+    });
+
+    document.getElementById("add-task-btn").addEventListener("click", async () => {
+      const title = document.getElementById("new-task-input").value.trim();
+      if (!title) return;
+      await api.createClientTask(client.id, title, null);
+      load();
+    });
+    document.querySelectorAll(".task-checkbox:not(:disabled)").forEach((cb) => {
+      cb.addEventListener("change", async () => {
+        await api.completeClientTask(cb.dataset.taskId);
+        load();
+      });
+    });
+
+    document.getElementById("add-note-btn").addEventListener("click", async () => {
+      const body = document.getElementById("new-note-input").value.trim();
+      if (!body) return;
+      await api.addClientNote(client.id, body);
+      load();
+    });
+
+    document.getElementById("add-search-btn").addEventListener("click", async () => {
+      const name = document.getElementById("search-name").value.trim();
+      if (!name) return await systemAlert("Give the search a name.");
+      await api.createSavedSearch(client.id, {
+        name,
+        city: document.getElementById("search-city").value || null,
+        min_beds: parseInt(document.getElementById("search-min-beds").value) || null,
+        min_price: parseFloat(document.getElementById("search-min-price").value) || null,
+        max_price: parseFloat(document.getElementById("search-max-price").value) || null,
+      });
+      load();
+    });
+
+    document.getElementById("brief-btn").addEventListener("click", () => runAi(() => api.getRelationshipBrief(client.id), "brief"));
+    document.getElementById("next-action-btn").addEventListener("click", () => runAi(() => api.getNextAction(client.id), "suggestion"));
+    document.getElementById("suggest-tags-btn").addEventListener("click", async () => {
+      const resultEl = document.getElementById("ai-result");
+      resultEl.textContent = "Thinking…";
+      try {
+        const { suggested_tags } = await api.getSuggestedTags(client.id);
+        resultEl.textContent = suggested_tags.length ? `Suggested: ${suggested_tags.join(", ")}` : "No new tag suggestions.";
+      } catch (e) {
+        resultEl.textContent = `Error: ${e.message}`;
+      }
+    });
+  }
+
+  async function runAi(fn, resultKey) {
+    const resultEl = document.getElementById("ai-result");
+    resultEl.textContent = "Thinking…";
+    try {
+      const result = await fn();
+      resultEl.textContent = result[resultKey];
+    } catch (e) {
+      resultEl.textContent = `Error: ${e.message}`;
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>

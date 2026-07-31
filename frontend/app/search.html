@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Search — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .search-hero { max-width: 720px; margin: 0 auto 8px; }
+  .search-input-wrap { position: relative; }
+  .search-input-wrap input {
+    width: 100%; padding: 16px 20px 16px 48px; border: 1px solid var(--olive-200); border-radius: 12px;
+    font-size: 16px; box-shadow: var(--shadow-card);
+  }
+  .search-input-wrap .icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); font-size: 17px; color: var(--ink-500); }
+  .search-toggle { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-500); margin-top: 10px; justify-content: flex-end; }
+
+  .search-summary { text-align: center; color: var(--ink-500); font-size: 13px; margin: 18px 0 26px; }
+
+  .category-section { max-width: 900px; margin: 0 auto 24px; }
+  .category-header { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; margin-bottom: 10px; color: var(--ink-700); }
+  .category-count { font-size: 11px; background: var(--cream-dim); padding: 2px 8px; border-radius: 99px; font-weight: 600; color: var(--ink-700); }
+
+  .result-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--cream-dim); text-decoration: none; color: inherit; }
+  .result-row:first-child { border-top: none; }
+  .result-row:hover { background: var(--cream-dim); }
+  .result-title { font-size: 13.5px; font-weight: 600; }
+  .result-subtitle { font-size: 11.5px; color: var(--ink-500); margin-top: 2px; }
+  .result-arrow { color: var(--ink-500); font-size: 13px; }
+
+  .web-result-row { display: block; padding: 14px 16px; border-bottom: 1px solid var(--cream-dim); text-decoration: none; color: inherit; }
+  .web-result-row:hover { background: var(--cream-dim); }
+  .web-result-title { font-size: 13.5px; font-weight: 600; color: var(--gold-600); margin-bottom: 3px; }
+  .web-result-url { font-size: 11px; color: var(--success); margin-bottom: 4px; }
+  .web-result-snippet { font-size: 12.5px; color: var(--ink-700); line-height: 1.5; }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--ink-500); font-size: 14px; }
+  .web-unconfigured { text-align: center; padding: 20px; color: var(--ink-500); font-size: 12.5px; background: var(--cream-dim); border-radius: 10px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="search"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="search-hero">
+        <div class="search-input-wrap">
+          <span class="icon">🔍</span>
+          <input type="text" id="search-input" placeholder="Search clients, properties, documents, memories, conversations, compliance, or the web…" autofocus />
+        </div>
+        <div class="search-toggle">
+          <input type="checkbox" id="include-web" checked />
+          <label for="include-web">Include web results</label>
+        </div>
+      </div>
+
+      <div id="results-container"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/athena-spinner.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script>
+  auth.requireAuth();
+
+  const CATEGORY_META = {
+    clients: { label: "Clients", icon: "👥" },
+    properties: { label: "Properties", icon: "🏠" },
+    documents: { label: "Documents", icon: "📄" },
+    memories: { label: "Memories", icon: "🧠" },
+    conversations: { label: "Conversations", icon: "💬" },
+    compliance: { label: "Compliance Reference", icon: "⚖️" },
+  };
+
+  async function runSearch() {
+    const q = document.getElementById("search-input").value.trim();
+    const container = document.getElementById("results-container");
+
+    if (q.length < 2) {
+      container.innerHTML = '<div class="empty-state">Type at least 2 characters to search across everything — clients, properties, documents, memories, past conversations, compliance reference, and the web.</div>';
+      return;
+    }
+
+    const includeWeb = document.getElementById("include-web").checked;
+    const results = await api.searchEverything(q, includeWeb);
+    render(results, q);
+  }
+
+  function render(results, q) {
+    const container = document.getElementById("results-container");
+
+    if (results.total_count === 0) {
+      container.innerHTML = `<div class="empty-state">No results for "${q}" anywhere in the system${document.getElementById("include-web").checked ? " or the web" : ""}.</div>`;
+      return;
+    }
+
+    let html = `
+      <div class="search-summary" style="display:flex; align-items:center; justify-content:center; gap:12px;">
+        <span>${results.total_count} result${results.total_count === 1 ? "" : "s"} for "${q}"</span>
+        <button class="btn btn-outline" id="summarize-btn" style="font-size:11.5px; padding:5px 11px;">🦉 Summarize this for me</button>
+      </div>
+      <div id="summarize-result" style="max-width:640px; margin:0 auto 24px;"></div>
+    `;
+
+    Object.entries(CATEGORY_META).forEach(([key, meta]) => {
+      const items = results[key] || [];
+      if (!items.length) return;
+      html += `
+        <div class="category-section">
+          <div class="category-header">${meta.icon} ${meta.label} <span class="category-count">${items.length}</span></div>
+          <div class="card" style="padding:0;">
+            ${items
+              .map(
+                (item) => `
+              <a class="result-row" href="${item.url}">
+                <div>
+                  <div class="result-title">${item.title}</div>
+                  <div class="result-subtitle">${item.subtitle}</div>
+                </div>
+                <span class="result-arrow">→</span>
+              </a>`
+              )
+              .join("")}
+          </div>
+        </div>`;
+    });
+
+    if (document.getElementById("include-web").checked) {
+      html += `<div class="category-section"><div class="category-header">🌐 Web <span class="category-count">${results.web.length}</span></div>`;
+      if (results.web.length) {
+        html += `<div class="card" style="padding:0;">${results.web
+          .map(
+            (w) => `
+          <a class="web-result-row" href="${w.url}" target="_blank" rel="noopener">
+            <div class="web-result-title">${w.title || w.url}</div>
+            <div class="web-result-url">${w.url}</div>
+            <div class="web-result-snippet">${w.snippet || ""}</div>
+          </a>`
+          )
+          .join("")}</div>`;
+      } else {
+        html += `<div class="web-unconfigured">No web results — either nothing matched, or web search isn't configured yet (set WEB_SEARCH_PROVIDER and an API key in .env).</div>`;
+      }
+      html += `</div>`;
+    }
+
+    container.innerHTML = html;
+
+    document.getElementById("summarize-btn").addEventListener("click", async () => {
+      const btn = document.getElementById("summarize-btn");
+      const resultEl = document.getElementById("summarize-result");
+      btn.style.display = "none";
+      const spinner = createAthenaSpinner(resultEl, { size: "sm" });
+      spinner.start();
+      try {
+        const { summary } = await api.summarizeSearch(q, results);
+        spinner.stop();
+        resultEl.innerHTML = `<div class="card" style="font-size:13.5px; line-height:1.6; padding:16px 18px;">🦉 ${summary}</div>`;
+      } catch (e) {
+        spinner.stop();
+        resultEl.textContent = `Error: ${e.message}`;
+      }
+    });
+  }
+
+  document.getElementById("search-input").addEventListener("input", () => {
+    clearTimeout(window._searchDebounce);
+    window._searchDebounce = setTimeout(runSearch, 400);
+  });
+  document.getElementById("include-web").addEventListener("change", runSearch);
+
+  document.getElementById("results-container").innerHTML = '<div class="empty-state">Search across your clients, properties, documents, memories, past conversations, compliance reference — and the web, all at once.</div>';
+</script>
+</body>
+</html>

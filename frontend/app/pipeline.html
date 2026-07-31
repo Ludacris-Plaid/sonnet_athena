@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pipeline — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 20px; }
+  .column { min-width: 240px; flex-shrink: 0; }
+  .column-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; margin-bottom: 8px; }
+  .column-title { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-700); }
+  .column-count { font-size: 11px; color: var(--ink-500); background: var(--cream-dim); padding: 2px 8px; border-radius: 99px; }
+  .column-value { font-size: 11px; color: var(--gold-600); font-weight: 600; margin-top: 2px; }
+  .column-drop { min-height: 60px; border-radius: 10px; padding: 4px; transition: background 0.15s; }
+  .column-drop.drag-over { background: var(--gold-100); }
+
+  .lead-card {
+    background: #fff; border: 1px solid var(--olive-200); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
+    cursor: grab; font-size: 13px;
+  }
+  .lead-card:active { cursor: grabbing; }
+  .lead-card .name { font-weight: 700; margin-bottom: 3px; }
+  .lead-card .meta { font-size: 11px; color: var(--ink-500); display: flex; justify-content: space-between; align-items: center; }
+  .temp-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .temp-dot.hot { background: var(--danger); }
+  .temp-dot.warm { background: var(--gold-500); }
+  .temp-dot.cold { background: var(--olive-500); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="clients"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Pipeline</div>
+      <div class="page-sub">Drag a card to move a client between stages. <a href="/app/clients.html" style="color:var(--gold-600);">← List view</a> · <a href="/app/inbox.html?ask=Which%20deal%20in%20my%20pipeline%20should%20I%20focus%20on%20right%20now%3F" style="color:var(--gold-600);">🦉 Ask Athena which deal to focus on</a></div>
+
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script>
+  auth.requireAuth();
+
+  async function load() {
+    const meta = await api.clientsMeta();
+    const clients = await api.listClients();
+
+    const board = document.getElementById("board");
+    board.innerHTML = meta.pipeline_stages
+      .map((stage) => {
+        const stageClients = clients.filter((c) => c.pipeline_stage === stage);
+        const totalValue = stageClients.reduce((sum, c) => sum + (c.deal_value || 0), 0);
+        return `
+        <div class="column">
+          <div class="column-header">
+            <div>
+              <div class="column-title">${stage.replace("_", " ")}</div>
+              ${totalValue ? `<div class="column-value">$${totalValue.toLocaleString()}</div>` : ""}
+            </div>
+            <span class="column-count">${stageClients.length}</span>
+          </div>
+          <div class="column-drop" data-stage="${stage}">
+            ${stageClients
+              .map(
+                (c) => `
+              <div class="lead-card" draggable="true" data-id="${c.id}">
+                <div class="name">${c.name}</div>
+                <div class="meta">
+                  <span><span class="temp-dot ${c.lead_temperature}"></span> ${c.budget_max ? "$" + c.budget_max.toLocaleString() : ""}</span>
+                  <span>${c.engagement_score != null ? c.engagement_score.toFixed(0) : "—"}</span>
+                </div>
+              </div>`
+              )
+              .join("")}
+          </div>
+        </div>`;
+      })
+      .join("");
+
+    wireDragDrop();
+    wireClickThrough();
+  }
+
+  function wireClickThrough() {
+    document.querySelectorAll(".lead-card").forEach((card) => {
+      let dragged = false;
+      card.addEventListener("dragstart", () => { dragged = true; });
+      card.addEventListener("click", () => {
+        if (!dragged) window.location.href = `/app/client-detail.html?id=${card.dataset.id}`;
+        dragged = false;
+      });
+    });
+  }
+
+  function wireDragDrop() {
+    let draggedId = null;
+
+    document.querySelectorAll(".lead-card").forEach((card) => {
+      card.addEventListener("dragstart", (e) => {
+        draggedId = card.dataset.id;
+        e.dataTransfer.effectAllowed = "move";
+      });
+    });
+
+    document.querySelectorAll(".column-drop").forEach((col) => {
+      col.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        col.classList.add("drag-over");
+      });
+      col.addEventListener("dragleave", () => col.classList.remove("drag-over"));
+      col.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        col.classList.remove("drag-over");
+        if (!draggedId) return;
+        await api.changeClientStage(draggedId, col.dataset.stage);
+        load();
+      });
+    });
+  }
+
+  load();
+</script>
+</body>
+</html>

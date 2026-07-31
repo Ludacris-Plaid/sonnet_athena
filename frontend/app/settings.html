@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Settings — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .settings-layout { display: grid; grid-template-columns: 200px 1fr; gap: 28px; max-width: 1000px; }
+  .settings-nav { display: flex; flex-direction: column; gap: 2px; }
+  .settings-nav-item { padding: 10px 14px; border-radius: 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-700); cursor: pointer; }
+  .settings-nav-item:hover { background: var(--cream-dim); }
+  .settings-nav-item.active { background: var(--gold-100); color: var(--gold-600); }
+
+  .settings-section { display: none; }
+  .settings-section.active { display: block; }
+  .settings-section h2 { font-size: 18px; margin-bottom: 18px; }
+
+  .field-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--cream-dim); }
+  .field-row:first-child { border-top: none; }
+  .field-label { font-size: 13px; color: var(--ink-500); }
+  .field-value { font-size: 13.5px; font-weight: 600; }
+
+  .conv-toolbar { display: flex; gap: 10px; margin-bottom: 18px; }
+  .conv-toolbar input { flex: 1; padding: 10px 13px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; }
+
+  .conv-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; border-top: 1px solid var(--cream-dim); cursor: pointer; }
+  .conv-row:first-child { border-top: none; }
+  .conv-row:hover { background: var(--cream-dim); }
+  .conv-row.active-conv { border-left: 3px solid var(--gold-500); }
+  .conv-title { font-size: 13.5px; font-weight: 600; }
+  .conv-meta { font-size: 11.5px; color: var(--ink-500); }
+  .conv-active-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--success); }
+
+  .reset-warning { background: #fbe9e5; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--ink-700); margin-bottom: 16px; line-height: 1.55; }
+
+  .danger-btn { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+
+  .integration-link-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--cream-dim); font-size: 13.5px; }
+  .integration-link-row:first-child { border-top: none; }
+
+  .key-category { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold-600); font-weight: 700; margin: 22px 0 10px; }
+  .key-category:first-child { margin-top: 0; }
+  .key-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--cream-dim); }
+  .key-row:first-of-type { border-top: none; }
+  .key-label { flex: 0 0 200px; font-size: 13px; font-weight: 600; }
+  .key-input { flex: 1; padding: 8px 11px; border: 1px solid var(--olive-200); border-radius: 7px; font-size: 12.5px; }
+  .key-select { flex: 1; padding: 8px 11px; border: 1px solid var(--olive-200); border-radius: 7px; font-size: 12.5px; }
+  .key-status { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; flex: 0 0 auto; }
+  .key-status.db { background: #e7f0e4; color: var(--success); }
+  .key-status.env { background: var(--cream-dim); color: var(--ink-700); }
+  .key-status.unset { background: #fbe9e5; color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="settings"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Settings</div>
+      <div class="page-sub">Your profile, conversation history, and connected services — all in one place.</div>
+
+      <div class="settings-layout">
+        <div class="settings-nav">
+          <div class="settings-nav-item active" data-section="profile">Profile</div>
+          <div class="settings-nav-item" data-section="conversations">Conversation History</div>
+          <div class="settings-nav-item" data-section="trust">Trust &amp; Automation</div>
+          <div class="settings-nav-item" data-section="integrations">Connected Services</div>
+          <div class="settings-nav-item" data-section="apikeys">API Keys</div>
+          <div class="settings-nav-item" data-section="account">Account</div>
+        </div>
+
+        <div>
+          <div class="settings-section active" id="section-profile">
+            <div class="card">
+              <h2>Profile</h2>
+              <div class="field-row"><span class="field-label">Name</span><span class="field-value" id="profile-name">—</span></div>
+              <div class="field-row"><span class="field-label">Email</span><span class="field-value" id="profile-email">—</span></div>
+            </div>
+
+            <div class="card" style="margin-top:16px;">
+              <h2>Athena's Personality</h2>
+              <p style="font-size:13px; color:var(--ink-500); margin-bottom:16px; line-height:1.55;">
+                Her core character — warm, direct, strategic, occasionally pushy when it matters — doesn't
+                change. This controls response length only, which is mostly a token-cost preference.
+              </p>
+              <select id="response-style-select" style="width:100%; padding:10px 12px; border:1px solid var(--olive-200); border-radius:8px; font-size:13.5px; margin-bottom:12px;"></select>
+              <button class="btn btn-primary" id="save-style-btn" style="font-size:12.5px;">Save</button>
+            </div>
+
+            <div class="card" style="margin-top:16px;">
+              <h2>Business Profile</h2>
+              <p style="font-size:13px; color:var(--ink-500); margin-bottom:16px; line-height:1.55;">
+                Shared across your whole org. Athena pulls this automatically into content generation,
+                documents, and outbound agent messages — put your name and logo here once, not every time.
+              </p>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                <input type="text" id="bp-agent-name" placeholder="Agent name" style="padding:9px 11px; border:1px solid var(--olive-200); border-radius:8px; font-size:13px;" />
+                <input type="text" id="bp-brokerage-name" placeholder="Brokerage name" style="padding:9px 11px; border:1px solid var(--olive-200); border-radius:8px; font-size:13px;" />
+                <input type="text" id="bp-license-number" placeholder="License / registration number" style="padding:9px 11px; border:1px solid var(--olive-200); border-radius:8px; font-size:13px;" />
+                <input type="text" id="bp-license-jurisdiction" placeholder="Jurisdiction (e.g. TX, or Ontario/RECO)" style="padding:9px 11px; border:1px solid var(--olive-200); border-radius:8px; font-size:13px;" />
+                <input type="text" id="bp-phone" placeholder="Business phone" style="padding:9px 11px; border:1px solid var(--olive-200); border-radius:8px; font-size:13px;" />
+                <input type="email" id="bp-email" placeholder="Business email" style="padding:9px 11px; border:1px solid var(--olive-200); border-radius:8px; font-size:13px;" />
+              </div>
+              <input type="text" id="bp-address" placeholder="Business address" style="width:100%; padding:9px 11px; border:1px solid var(--olive-200); border-radius:8px; font-size:13px; margin-bottom:10px;" />
+              <input type="text" id="bp-logo-url" placeholder="Logo URL (a hosted image link — e.g. from your website)" style="width:100%; padding:9px 11px; border:1px solid var(--olive-200); border-radius:8px; font-size:13px; margin-bottom:14px;" />
+              <div id="bp-logo-preview" style="margin-bottom:14px;"></div>
+              <button class="btn btn-primary" id="bp-save-btn">Save Business Profile</button>
+            </div>
+          </div>
+
+          <div class="settings-section" id="section-conversations">
+            <div class="card">
+              <h2>Conversation History</h2>
+              <div class="reset-warning">
+                Nothing here ever resets on its own — every conversation stays exactly as it was, forever, unless you explicitly start a new one below. Reloading the page, logging out and back in, none of that touches your history.
+              </div>
+
+              <div class="conv-toolbar">
+                <input type="text" id="conv-search" placeholder="Search conversations by title or content…" />
+                <button class="btn btn-outline danger-btn" id="reset-conv-btn">+ Start New Conversation</button>
+              </div>
+
+              <div id="conv-list"></div>
+            </div>
+          </div>
+
+          <div class="settings-section" id="section-trust">
+            <div class="card">
+              <h2>Trust &amp; Automation</h2>
+              <p style="font-size:13.5px; color:var(--ink-700); line-height:1.6; margin-bottom:16px;">
+                See exactly how much autonomy Athena has earned, your level, and badges on the dedicated Trust page.
+              </p>
+              <a href="/app/trust.html" class="btn btn-primary">Open Trust with Athena</a>
+            </div>
+          </div>
+
+          <div class="settings-section" id="section-integrations">
+            <div class="card">
+              <h2>Connected Services</h2>
+              <div class="integration-link-row"><span>Email &amp; Calendar (Gmail / Outlook) &amp; Slack</span><a href="/app/integrations.html" class="btn btn-outline" style="font-size:12px; padding:6px 12px;">Manage</a></div>
+              <div class="integration-link-row"><span>SMS &amp; Phone (Twilio)</span><span style="font-size:12px; color:var(--ink-500);" id="twilio-status">Checking…</span></div>
+              <div class="integration-link-row"><span>External CRM sync (Follow Up Boss / HubSpot)</span><a href="/app/crm-integrations.html" class="btn btn-outline" style="font-size:12px; padding:6px 12px;">Manage</a></div>
+              <div class="integration-link-row"><span>Listings data sources</span><a href="/app/properties.html" class="btn btn-outline" style="font-size:12px; padding:6px 12px;">Manage</a></div>
+            </div>
+          </div>
+
+          <div class="settings-section" id="section-apikeys">
+            <div class="card">
+              <h2>API Keys</h2>
+              <p style="font-size:13px; color:var(--ink-500); margin-bottom:18px; line-height:1.55;">
+                Every key here takes effect immediately — no server restart, no editing .env. These are
+                org-level integrations (voice, listings data, web search, Slack). Platform infrastructure
+                keys (the core AI model, OAuth app registration, etc.) are managed separately by your
+                platform admin, since a change there would affect every organization, not just yours.
+              </p>
+              <div id="api-keys-container">Loading…</div>
+            </div>
+          </div>
+
+          <div class="settings-section" id="section-account">
+            <div class="card">
+              <h2>Account</h2>
+              <p style="font-size:13.5px; color:var(--ink-700); margin-bottom:16px;">Signing out doesn't reset or delete anything — your conversations, clients, and data are all still there next time you log in.</p>
+              <button class="btn btn-outline danger-btn" id="logout-btn">Log out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  document.querySelectorAll(".settings-nav-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      document.querySelectorAll(".settings-nav-item").forEach((i) => i.classList.remove("active"));
+      document.querySelectorAll(".settings-section").forEach((s) => s.classList.remove("active"));
+      item.classList.add("active");
+      document.getElementById(`section-${item.dataset.section}`).classList.add("active");
+      if (item.dataset.section === "conversations") loadConversations();
+      if (item.dataset.section === "apikeys") loadApiKeys();
+      if (item.dataset.section === "integrations") loadTelephonyStatus();
+    });
+  });
+
+  async function loadTelephonyStatus() {
+    const status = await api.getTelephonyStatus();
+    const el = document.getElementById("twilio-status");
+    el.textContent = status.configured ? `Connected — ${status.phone_number}` : "Not configured (admin sets this up)";
+    el.style.color = status.configured ? "var(--success, #4f7a4a)" : "var(--ink-500)";
+  }
+
+  async function loadProfile() {
+    try {
+      const user = await supabaseAuth.getUser();
+      document.getElementById("profile-email").textContent = user?.email || "—";
+    } catch (e) { /* not fatal */ }
+
+    const profile = await api.getProfile();
+    document.getElementById("profile-name").textContent = profile.full_name || "—";
+
+    const select = document.getElementById("response-style-select");
+    select.innerHTML = Object.entries(profile.response_style_options)
+      .map(([key, label]) => `<option value="${key}" ${key === profile.response_style ? "selected" : ""}>${label}</option>`)
+      .join("");
+  }
+
+  document.getElementById("save-style-btn").addEventListener("click", async () => {
+    const style = document.getElementById("response-style-select").value;
+    await api.setPreferences({ response_style: style });
+    await systemAlert("Saved — Athena will use this response length from your next message.");
+  });
+
+  async function loadBusinessProfile() {
+    const bp = await api.getBusinessProfile();
+    document.getElementById("bp-agent-name").value = bp.agent_name || "";
+    document.getElementById("bp-brokerage-name").value = bp.brokerage_name || "";
+    document.getElementById("bp-license-number").value = bp.license_number || "";
+    document.getElementById("bp-license-jurisdiction").value = bp.license_jurisdiction || "";
+    document.getElementById("bp-phone").value = bp.business_phone || "";
+    document.getElementById("bp-email").value = bp.business_email || "";
+    document.getElementById("bp-address").value = bp.business_address || "";
+    document.getElementById("bp-logo-url").value = bp.logo_url || "";
+    renderLogoPreview(bp.logo_url);
+  }
+
+  function renderLogoPreview(url) {
+    const el = document.getElementById("bp-logo-preview");
+    el.innerHTML = url ? `<img src="${url}" style="max-height:60px; border-radius:6px;" onerror="this.style.display='none'" />` : "";
+  }
+
+  document.getElementById("bp-logo-url").addEventListener("input", (e) => renderLogoPreview(e.target.value));
+
+  document.getElementById("bp-save-btn").addEventListener("click", async () => {
+    await api.setBusinessProfile({
+      agent_name: document.getElementById("bp-agent-name").value,
+      brokerage_name: document.getElementById("bp-brokerage-name").value,
+      license_number: document.getElementById("bp-license-number").value,
+      license_jurisdiction: document.getElementById("bp-license-jurisdiction").value,
+      business_phone: document.getElementById("bp-phone").value,
+      business_email: document.getElementById("bp-email").value,
+      business_address: document.getElementById("bp-address").value,
+      logo_url: document.getElementById("bp-logo-url").value,
+    });
+    await systemAlert("Business profile saved — Athena will use this in content and documents going forward.");
+  });
+
+  loadBusinessProfile();
+
+  let activeConvId = null;
+
+  async function loadConversations() {
+    const search = document.getElementById("conv-search").value.trim();
+    const [active, list] = await Promise.all([
+      api.getActiveConversation("chat"),
+      api.listConversations("chat", search || undefined),
+    ]);
+    activeConvId = active.id;
+
+    const container = document.getElementById("conv-list");
+    if (!list.length) {
+      container.innerHTML = `<div style="padding:20px; color:var(--ink-500); font-size:13px;">No conversations yet — start chatting with Athena and they'll show up here.</div>`;
+      return;
+    }
+
+    container.innerHTML = list
+      .map(
+        (c) => `
+      <div class="conv-row ${c.id === activeConvId ? "active-conv" : ""}" data-id="${c.id}">
+        <div>
+          <div class="conv-title">${c.title || "Untitled conversation"}</div>
+          <div class="conv-meta">Last message ${new Date(c.last_message_at).toLocaleString()}</div>
+        </div>
+        ${c.id === activeConvId ? '<span class="conv-active-tag">Active</span>' : '<span style="font-size:12px; color:var(--gold-600);">Resume →</span>'}
+      </div>`
+      )
+      .join("");
+
+    container.querySelectorAll(".conv-row").forEach((row) => {
+      row.addEventListener("click", async () => {
+        if (row.dataset.id === activeConvId) {
+          window.location.href = "/app/inbox.html";
+          return;
+        }
+        await api.activateConversation(row.dataset.id);
+        window.location.href = "/app/inbox.html";
+      });
+    });
+  }
+
+  document.getElementById("conv-search").addEventListener("input", () => {
+    clearTimeout(window._convSearchDebounce);
+    window._convSearchDebounce = setTimeout(loadConversations, 300);
+  });
+
+  document.getElementById("reset-conv-btn").addEventListener("click", async () => {
+    if (!await systemConfirm("Start a brand new conversation? Nothing is deleted — your current one stays in this list, searchable, forever.")) return;
+    await api.startNewConversation("chat");
+    await loadConversations();
+    await systemAlert("New conversation started — head to Chat with Athena to begin.");
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    await auth.clearToken();
+    window.location.href = "/app/login.html";
+  });
+
+  async function loadApiKeys() {
+    const keys = await api.listSettingKeys();
+    const categories = [...new Set(keys.map((k) => k.category))];
+    const container = document.getElementById("api-keys-container");
+
+    container.innerHTML = categories
+      .map(
+        (cat) => `
+      <div class="key-category">${cat}</div>
+      ${keys
+        .filter((k) => k.category === cat)
+        .map((k) => renderKeyRow(k))
+        .join("")}`
+      )
+      .join("");
+
+    wireApiKeyEvents();
+  }
+
+  function keyStatus(k) {
+    if (k.is_set_in_db) return { cls: "db", label: "Set here" };
+    if (k.is_set_in_env) return { cls: "env", label: "Set in .env" };
+    return { cls: "unset", label: "Not set" };
+  }
+
+  function renderKeyRow(k) {
+    const status = keyStatus(k);
+    const currentValue = k.is_set_in_db ? k.display_value : "";
+    const input = k.choices
+      ? `<select class="key-select" id="key-input-${k.key}">${k.choices.map((c) => `<option value="${c}" ${k.display_value === c ? "selected" : ""}>${c}</option>`).join("")}</select>`
+      : `<input class="key-input" id="key-input-${k.key}" type="${k.secret ? "password" : "text"}" placeholder="${k.secret && k.is_set_in_db ? k.display_value : "Not set"}" value="${!k.secret ? currentValue || "" : ""}" />`;
+
+    return `
+      <div class="key-row">
+        <div class="key-label">${k.label}</div>
+        ${input}
+        <span class="key-status ${status.cls}">${status.label}</span>
+        <button class="btn btn-outline" data-save-key="${k.key}" style="font-size:11px; padding:5px 10px;">Save</button>
+        ${k.is_set_in_db ? `<button class="btn btn-outline" data-clear-key="${k.key}" style="font-size:11px; padding:5px 10px; color:var(--danger); border-color:var(--danger);">Clear</button>` : ""}
+      </div>`;
+  }
+
+  function wireApiKeyEvents() {
+    document.querySelectorAll("[data-save-key]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const key = btn.dataset.saveKey;
+        const input = document.getElementById(`key-input-${key}`);
+        const value = input.value.trim();
+        if (!value) return await systemAlert("Enter a value first.");
+        btn.disabled = true;
+        try {
+          await api.setSettingKey(key, value);
+          await loadApiKeys();
+        } catch (e) {
+          await systemAlert(e.message);
+          btn.disabled = false;
+        }
+      });
+    });
+    document.querySelectorAll("[data-clear-key]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!await systemConfirm("Remove this key? The platform will fall back to the .env default, if any.")) return;
+        await api.deleteSettingKey(btn.dataset.clearKey);
+        await loadApiKeys();
+      });
+    });
+  }
+
+  loadProfile();
+
+  const params = new URLSearchParams(window.location.search);
+  const targetConv = params.get("conversation");
+  if (targetConv) {
+    document.querySelector('[data-section="conversations"]').click();
+  }
+</script>
+</body>
+</html>

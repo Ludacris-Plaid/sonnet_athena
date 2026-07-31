@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chat with Athena — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .chat-col { display: flex; flex-direction: column; height: calc(100vh - 65px); }
+  .chat-scroll { flex: 1; overflow-y: auto; padding: 32px; display: flex; flex-direction: column; gap: 16px; }
+  .chat-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .chat-empty .owl { font-size: 40px; margin-bottom: 14px; }
+  .chat-empty h2 { font-size: 22px; margin-bottom: 8px; }
+  .chat-empty p { color: var(--ink-500); font-size: 14px; max-width: 380px; margin-bottom: 28px; }
+  .suggestion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 460px; width: 100%; }
+  .suggestion-chip {
+    background: #fff; border: 1px solid var(--olive-200); border-radius: 10px; padding: 14px 16px;
+    font-size: 13.5px; text-align: left; color: var(--ink-700); cursor: pointer;
+  }
+  .suggestion-chip:hover { border-color: var(--gold-400); }
+
+  .msg-row { display: flex; gap: 12px; max-width: 720px; }
+  .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg-avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display:flex; align-items:center; justify-content:center; font-size: 15px; }
+  .msg-avatar.athena { background: var(--olive-800); }
+  .msg-avatar.user { background: var(--gold-500); }
+  .msg-copy-btn {
+    position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.04);
+    border: 1px solid var(--olive-200); border-radius: 6px; padding: 2px 8px; font-size: 11px;
+    cursor: pointer; opacity: 0; transition: opacity 0.15s; color: var(--ink-500);
+  }
+  .msg-row:hover .msg-copy-btn { opacity: 1; }
+  .msg-copy-btn:hover { background: var(--gold-200); border-color: var(--gold-400); }
+  .msg-bubble { position: relative; }
+  .msg-bubble h3 { font-size: 15px; font-weight: 700; margin: 12px 0 6px; color: var(--olive-800); }
+  .msg-bubble ul { margin: 8px 0; padding-left: 20px; }
+  .msg-bubble li { margin: 3px 0; }
+  .msg-bubble strong { color: var(--olive-800); }
+  .msg-bubble { background: #fff; border: 1px solid var(--olive-200); border-radius: 12px; padding: 13px 16px; font-size: 14.5px; line-height: 1.55; }
+  .msg-row.user .msg-bubble { background: var(--gold-100); border-color: var(--gold-400); }
+
+  .composer { padding: 20px 32px 28px; border-top: 1px solid var(--olive-200); }
+  .composer-inner { display: flex; gap: 10px; align-items: flex-end; background: #fff; border: 1px solid var(--olive-200); border-radius: 12px; padding: 10px 10px 10px 16px; }
+  .composer-inner textarea {
+    flex: 1; border: none; resize: none; font-family: var(--font-body); font-size: 14.5px;
+    max-height: 140px; padding: 6px 0; outline: none;
+  }
+  .composer-hint { font-size: 11.5px; color: var(--ink-500); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="athena"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <a href="/app/settings.html" style="font-size:12px; color:var(--ink-500); text-decoration:none;" title="Search and manage past conversations">📜 Conversation history</a>
+        <button class="btn btn-outline" id="new-conversation-btn" style="font-size:12px; padding:7px 12px;">+ New conversation</button>
+        <div class="topbar-user">
+          <div>
+            <div class="name" id="user-name">—</div>
+            <div class="email" id="user-email">—</div>
+          </div>
+          <div class="avatar-chip" id="user-initial">·</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-col">
+      <div id="approvals-banner" style="display:none; margin: 14px 32px 0; padding: 10px 16px; background: var(--gold-100); border: 1px solid var(--gold-400); border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--gold-600);"></div>
+
+      <div class="chat-scroll" id="chat-scroll">
+        <div class="chat-empty" id="chat-empty">
+          <div class="owl">🦉</div>
+          <h2 class="display">Ask Athena</h2>
+          <p>Your AI real estate assistant. Get help with clients, listings, tasks, and regulations.</p>
+          <div class="suggestion-grid">
+            <div class="suggestion-chip" data-prompt="Show me my clients">✨ Show me my clients</div>
+            <div class="suggestion-chip" data-prompt="What tasks are pending?">✨ What tasks are pending?</div>
+            <div class="suggestion-chip" data-prompt="Find listings under $500k">✨ Find listings under $500k</div>
+            <div class="suggestion-chip" data-prompt="Pull comps for my newest listing">✨ Pull comps for my newest listing</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="composer-inner">
+          <textarea id="chat-input" rows="1" placeholder="Ask Athena anything…"></textarea>
+          <button class="btn btn-outline" id="opt-btn" title="Optimize prompt" style="padding:10px 12px;font-size:15px;flex-shrink:0;">⚡</button>
+          <button class="btn btn-outline" id="voice-btn" style="padding:10px 12px;font-size:16px;" title="Talk to Athena">🎙️</button>
+          <button class="btn btn-outline" id="go-deep-btn" style="padding: 10px 14px; font-size: 12.5px;" title="Delegate to Hermes for sustained multi-step research">🔬 Go Deep</button>
+          <button class="btn btn-primary" id="send-btn" style="padding: 10px 18px;">Send</button>
+        </div>
+        <div id="opt-hint" style="font-size:12px;color:var(--gold-600);margin-top:4px;min-height:0px;"></div>
+        <div class="composer-hint">Enter to send · Shift+Enter for new line · "Go Deep" hands this off to Hermes for longer, multi-step research (can take minutes)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/onboarding-tour.js"></script>
+<script>
+  auth.requireAuth();
+
+  async function sendToAthena(text) {
+    try {
+      const result = await api.chat(text);
+      return { reply: result.reply };
+    } catch (err) {
+      return { reply: `Something went wrong reaching Athena: ${err.message}` };
+    }
+  }
+
+  const chatScroll = document.getElementById("chat-scroll");
+  const chatEmpty = document.getElementById("chat-empty");
+  const input = document.getElementById("chat-input");
+
+  function formatMessage(text) {
+    if (!text) return "";
+    if (typeof text !== "string") text = String(text);
+    var html = text
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\n/g, "<br>");
+    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+    html = html.replace(/^##\s*(.+)/gm, "<h3>$1</h3>");
+    html = html.replace(/^-\s+(.+)/gm, "<li>$1</li>");
+    html = html.replace(/(<li>[\s\S]*?<\/li>)/g, "<ul>$1</ul>");
+    return html;
+  }
+
+  function addMessage(text, role) {
+    chatEmpty.style.display = "none";
+    const row = document.createElement("div");
+    row.className = `msg-row ${role}`;
+    row.innerHTML = `
+      <div class="msg-avatar ${role}">${role === "user" ? "T" : "🦉"}</div>
+      <div class="msg-bubble"></div>
+      <button class="msg-copy-btn" title="Copy">☰ Copy</button>
+    `;
+    row.querySelector(".msg-bubble").innerHTML = formatMessage(text);
+    row.querySelector(".msg-copy-btn").addEventListener("click", function() {
+      var self = this;
+      navigator.clipboard.writeText(text).then(function() {
+        self.textContent = "✓ Copied!";
+        setTimeout(function() { self.textContent = "☰ Copy"; }, 2000);
+      }).catch(function() { self.textContent = "Failed"; });
+    });
+    chatScroll.appendChild(row);
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }
+
+  // Load whatever conversation was already active — this is the "never
+  // resets unless explicitly asked" behavior. A page reload, a new login,
+  // none of that starts a fresh thread; it resumes exactly where things
+  // were left off.
+  async function loadActiveConversation() {
+    const conv = await api.getActiveConversation("chat");
+    const messages = await api.getConversationMessages(conv.id);
+    if (messages.length > 0) {
+      chatEmpty.style.display = "none";
+      messages.forEach((m) => addMessage(m.content, m.role === "user" ? "user" : "athena"));
+    }
+  }
+
+  document.getElementById("new-conversation-btn").addEventListener("click", async () => {
+    if (!confirm("Start a new conversation? Your current one isn't deleted — you can find it later in Settings under conversation history.")) return;
+    await api.startNewConversation("chat");
+    chatScroll.querySelectorAll(".msg-row").forEach((el) => el.remove());
+    chatEmpty.style.display = "flex";
+  });
+
+  async function handleSend() {
+    const text = input.value.trim();
+    if (!text) return;
+    addMessage(text, "user");
+    input.value = "";
+    const { reply } = await sendToAthena(text);
+    addMessage(reply, "athena");
+  }
+
+  document.getElementById("send-btn").addEventListener("click", handleSend);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+  document.querySelectorAll(".suggestion-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      input.value = chip.dataset.prompt;
+      handleSend();
+    });
+  });
+
+  // "Go Deep" — explicit delegation to Hermes Agent for sustained,
+  // multi-step research, as opposed to the fast /chat path above. These
+  // calls can genuinely take minutes (Hermes runs a full tool-using agent
+  // per request), so this gets its own loading state.
+  document.getElementById("go-deep-btn").addEventListener("click", async () => {
+    const text = input.value.trim();
+    if (!text) return;
+    addMessage(text, "user");
+    input.value = "";
+    addMessage("Working on it — this can take a few minutes since it's a full research pass, not a quick reply…", "athena");
+
+    try {
+      const { result } = await api.delegateToAgent(text, "Real estate context via Athena.");
+      addMessage(result, "athena");
+    } catch (err) {
+      addMessage(`Couldn't reach Hermes: ${err.message}`, "athena");
+    }
+  });
+
+  // Voice recording — Talk to Athena merged into Chat
+  let mediaRecorder = null;
+  let audioChunks = [];
+
+  document.getElementById("opt-btn").addEventListener("click", async function() {
+    var inp = document.getElementById("chat-input");
+    var txt = inp.value.trim();
+    if (!txt || txt.length < 3) return;
+    var orig = txt; this.textContent = "\u23f3"; this.disabled = true;
+    try {
+      var t = await auth.getToken();
+      if (!t) { this.textContent = "\u26a1"; this.disabled = false; return; }
+      var r = await fetch(window.REALTYAI_API_BASE + "/optimize", { method:"POST", headers:{"Authorization":"Bearer "+t,"Content-Type":"application/json"}, body:JSON.stringify({text:txt}) });
+      var d = await r.json();
+      inp.value = d.optimized || txt;
+      var h = document.getElementById("opt-hint");
+      h.innerHTML = "\u26a1 Optimized. <a href=\"#\" id=\"o-rl\" style=\"color:var(--gold-600);font-weight:600;\">Revert</a>";
+      var rl = document.getElementById("o-rl"); if (rl) rl.onclick = function(e) { e.preventDefault(); inp.value = orig; h.innerHTML = ""; };
+    } catch(e) { var h = document.getElementById("opt-hint"); if (h) h.innerHTML = "\u26a1 Failed: " + e.message; }
+    this.textContent = "\u26a1"; this.disabled = false;
+  });
+
+  document.getElementById("voice-btn").addEventListener("pointerdown", async function(e) {
+    e.preventDefault();
+    if (mediaRecorder && mediaRecorder.state === "recording") return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      audioChunks = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.start();
+      this.textContent = "🔴";
+      this.style.color = "var(--danger)";
+    } catch (e) { alert("Mic access denied: " + e.message); }
+  });
+
+  document.getElementById("voice-btn").addEventListener("pointerup", async function(e) {
+    e.preventDefault();
+    if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+    this.textContent = "🎙️";
+    this.style.color = "";
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
+
+    const blob = new Blob(audioChunks, { type: "audio/webm" });
+    const token = await auth.getToken();
+    const formData = new FormData();
+    formData.append("audio", blob, "voice.webm");
+
+    addMessage("🎤 Listening...", "user");
+    try {
+      const res = await fetch(window.REALTYAI_API_BASE + "/voice/converse", {
+        method: "POST", headers: { Authorization: "Bearer " + token }, body: formData,
+      });
+      if (!res.ok) throw new Error("Voice processing failed");
+      const data = await res.json();
+      // Replace the "Listening..." placeholder with the actual transcript
+      const msgs = document.querySelectorAll(".chat-messages .msg-row.user");
+      if (msgs.length) {
+        const last = msgs[msgs.length - 1];
+        const bubble = last.querySelector(".msg-bubble");
+        if (bubble) bubble.innerHTML = formatMessage(data.transcript || data.reply || "");
+      }
+      addMessage(data.reply || "Sorry, I didn't catch that.", "athena");
+      // Play back audio if available
+      if (data.audio_id) {
+        const audio = new Audio(window.REALTYAI_API_BASE + "/voice/audio/" + data.audio_id);
+        audio.play().catch(() => {});
+      }
+    } catch (e) {
+      addMessage("Voice error: " + e.message, "athena");
+    }
+  });
+
+  // Approvals banner — surfaces anything waiting on a human decision
+  // (draft replies, compliance flags, failed CRM syncs) right where the
+  // agent is already looking, rather than only on a separate page.
+  (async function loadApprovalsBanner() {
+    try {
+      const approvals = await api.getApprovals();
+      if (approvals.length > 0) {
+        const banner = document.getElementById("approvals-banner");
+        const highPriority = approvals.filter((a) => a.priority === "high").length;
+        banner.textContent = `⚠️ ${approvals.length} item${approvals.length === 1 ? "" : "s"} waiting on you${highPriority ? ` (${highPriority} high priority)` : ""} — check Inbox and Alerts.`;
+        banner.style.display = "block";
+      }
+    } catch (e) { /* not fatal */ }
+  })();
+
+  // Check whether Hermes is actually reachable so "Go Deep" doesn't invite
+  // a click that's guaranteed to fail — label it clearly instead.
+  (async function checkHermesStatus() {
+    const btn = document.getElementById("go-deep-btn");
+    try {
+      const { available } = await api.hermesStatus();
+      if (!available) {
+        btn.textContent = "🔬 Go Deep (not connected)";
+        btn.title = "Hermes Agent isn't configured yet — set HERMES_ENABLED and connection details in .env";
+        btn.style.opacity = "0.6";
+      }
+    } catch (e) {
+      // Endpoint unreachable entirely — leave the button as-is rather than block on this.
+    }
+  })();
+
+  // Populate topbar user info from the Supabase session
+  (async function hydrateUser() {
+    try {
+      const user = await supabaseAuth.getUser();
+      document.getElementById("user-email").textContent = user?.email || "";
+      document.getElementById("user-name").textContent = "Agent";
+      document.getElementById("user-initial").textContent = (user?.email || "A")[0].toUpperCase();
+    } catch (e) { /* not fatal */ }
+  })();
+
+  loadActiveConversation();
+
+  // First-time onboarding — checked server-side (has_completed_onboarding
+  // on the User model), so it runs exactly once per user regardless of
+  // device/browser, and never re-triggers just because storage was cleared.
+  (async function maybeRunOnboarding() {
+    try {
+      const status = await api.getOnboardingStatus();
+      if (!status.has_completed_onboarding) {
+        setTimeout(() => {
+          runOnboardingTour(() => api.completeOnboarding());
+        }, 600); // let the sidebar finish rendering first
+      }
+    } catch (e) { /* not fatal — onboarding just won't show this load */ }
+  })();
+</script>
+</body>
+</html>

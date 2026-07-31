@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Daily Briefing — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .briefing-hero {
+    background: linear-gradient(135deg, var(--olive-900), var(--olive-800));
+    color: #fff; border-radius: 18px; padding: 30px 34px; margin-bottom: 24px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .briefing-eyebrow { display:flex; align-items:center; gap:6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold-400); font-weight: 700; margin-bottom: 10px; }
+  .briefing-greeting { font-family: var(--font-display); font-size: 30px; margin-bottom: 6px; }
+  .briefing-sub { color: rgba(244,240,230,0.75); font-size: 14px; }
+  .hero-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .hero-btn { background: rgba(244,240,230,0.1); border: 1px solid rgba(244,240,230,0.2); color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 12.5px; cursor: pointer; display:flex; align-items:center; gap:6px; }
+  .hero-btn:hover { background: rgba(244,240,230,0.18); }
+  .hero-btn.primary { background: var(--gold-500); color: var(--ink-900); border-color: transparent; font-weight: 700; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .stat-card { padding: 18px 20px; }
+  .stat-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .stat-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .stat-icon.clients { background: #e2e8da; }
+  .stat-icon.pipeline { background: var(--gold-100); }
+  .stat-icon.tasks { background: var(--gold-100); }
+  .stat-icon.events { background: #dbe6f2; }
+  .stat-meta { font-size: 11px; color: var(--ink-500); }
+  .stat-value { font-family: var(--font-display); font-size: 30px; line-height: 1; }
+  .stat-label { font-size: 12.5px; color: var(--ink-500); margin-top: 4px; }
+
+  .briefing-layout { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; align-items: start; }
+
+  .section-card { padding: 22px; margin-bottom: 16px; }
+  .section-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .section-card-header h3 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .section-card-header .sub-label { font-size: 11px; color: var(--ink-500); }
+  .section-card-header .view-all { font-size: 12px; color: var(--gold-600); text-decoration: none; font-weight: 600; }
+
+  .insight-card { display: flex; gap: 12px; background: var(--cream-dim); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .insight-card:last-child { margin-bottom: 0; }
+  .insight-num { width: 22px; height: 22px; border-radius: 50%; background: var(--gold-500); color: var(--ink-900); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .insight-text { font-size: 13.5px; line-height: 1.55; color: var(--ink-700); }
+
+  .list-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-top: 1px solid var(--cream-dim); font-size: 13.5px; }
+  .list-row:first-child { border-top: none; }
+  .list-row a { color: var(--ink-900); text-decoration: none; font-weight: 600; }
+  .list-row a:hover { color: var(--gold-600); }
+  .priority-pill { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; }
+  .priority-pill.high { background: #fbe9e5; color: var(--danger); }
+  .priority-pill.normal { background: var(--cream-dim); color: var(--ink-700); }
+  .empty-row { color: var(--ink-500); font-size: 13px; padding: 8px 0; }
+
+  /* Mini calendar widget */
+  .mini-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+  .mini-cal-dow { font-size: 10px; color: var(--ink-500); font-weight: 700; padding-bottom: 6px; }
+  .mini-cal-day { font-size: 12px; padding: 6px 0; border-radius: 6px; cursor: default; position: relative; color: var(--ink-700); }
+  .mini-cal-day.other-month { color: var(--ink-500); opacity: 0.35; }
+  .mini-cal-day.today { background: var(--olive-800); color: #fff; font-weight: 700; }
+  .mini-cal-day .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--gold-500); margin: 2px auto 0; }
+  .mini-cal-day.today .dot { background: #fff; }
+  .mini-cal-event-row { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--cream-dim); font-size: 12.5px; margin-top: 10px; }
+
+  .msg-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--cream-dim); }
+  .msg-row:first-child { border-top: none; }
+  .msg-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--cream-dim); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-from { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .msg-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold-500); }
+  .msg-preview { font-size: 12px; color: var(--ink-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .msg-flag { font-size: 9.5px; font-weight: 700; text-transform: uppercase; background: #fbe9e5; color: var(--danger); padding: 1px 7px; border-radius: 99px; margin-top: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="briefing"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body" id="briefing-body">
+      <div style="text-align:center; padding:60px; color:var(--ink-500);">Loading your briefing…</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  const CHANNEL_ICONS = { email: "✉️", sms: "💬", voice: "🎙️", slack: "#", manual: "•" };
+
+  async function load() {
+    const b = await api.getDailyBriefing();
+    render(b);
+  }
+
+  async function refresh() {
+    document.getElementById("refresh-btn").textContent = "Refreshing…";
+    await load();
+  }
+
+  function buildMiniCalendar(monthEvents, todaysEvents) {
+    const today = new Date();
+    const year = today.getFullYear(), month = today.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startOffset = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const eventDates = new Set(monthEvents.map((e) => new Date(e.start_at).toDateString()));
+
+    const dows = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    let html = dows.map((d) => `<div class="mini-cal-dow">${d}</div>`).join("");
+
+    const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - startOffset + 1;
+      const cellDate = new Date(year, month, dayNum);
+      const inMonth = dayNum >= 1 && dayNum <= daysInMonth;
+      const isToday = inMonth && cellDate.toDateString() === today.toDateString();
+      const hasEvent = inMonth && eventDates.has(cellDate.toDateString());
+      html += `<div class="mini-cal-day ${!inMonth ? "other-month" : ""} ${isToday ? "today" : ""}">${inMonth ? cellDate.getDate() : ""}${hasEvent ? '<div class="dot"></div>' : ""}</div>`;
+    }
+    return html;
+  }
+
+  function render(b) {
+    const body = document.getElementById("briefing-body");
+    body.innerHTML = `
+      <div class="briefing-hero">
+        <div>
+          <div class="briefing-eyebrow">☀️ Daily Briefing</div>
+          <div class="briefing-greeting">${b.greeting}</div>
+          <div class="briefing-sub">${b.date}</div>
+        </div>
+        <div class="hero-actions">
+          <button class="hero-btn" id="history-btn">🕐 History</button>
+          <button class="hero-btn primary" id="refresh-btn">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="card stat-card">
+          <div class="stat-top"><div class="stat-icon clients">👥</div><div class="stat-meta">${b.stats.new_clients_7d} new (7d)</div></div>
+          <div class="stat-value">${b.stats.total_clients}</div>
+          <div class="stat-label">Clients</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-top"><div class="stat-icon pipeline">💼</div><div class="stat-meta">$${b.stats.pipeline_value.toLocaleString()}</div></div>
+          <div class="stat-value">${b.stats.hot_leads}</div>
+          <div class="stat-label">Hot Leads</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-top"><div class="stat-icon tasks">✓</div><div class="stat-meta">${b.stats.high_priority_approvals} high priority</div></div>
+          <div class="stat-value">${b.stats.overdue_tasks + b.stats.pending_approvals}</div>
+          <div class="stat-label">Pending Tasks</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-top"><div class="stat-icon events">📅</div><div class="stat-meta">${b.recent_messages.length} new msgs</div></div>
+          <div class="stat-value">${b.stats.todays_events}</div>
+          <div class="stat-label">Today's Events</div>
+        </div>
+      </div>
+
+      <div class="briefing-layout">
+        <div>
+          <div class="card section-card">
+            <div class="section-card-header">
+              <h3>✨ AI Insights</h3>
+              <span class="sub-label">Generated by DeepSeek</span>
+            </div>
+            ${b.ai_insights.map((insight, i) => `
+              <div class="insight-card">
+                <div class="insight-num">${i + 1}</div>
+                <div class="insight-text">${insight}</div>
+              </div>`).join("")}
+          </div>
+
+          <div class="card section-card">
+            <div class="section-card-header"><h3>🎯 Today's Priorities</h3></div>
+            ${
+              b.priorities.length
+                ? b.priorities.map((p) => `<div class="list-row"><span>${p.summary}</span><span class="priority-pill ${p.priority}">${p.priority}</span></div>`).join("")
+                : '<div class="empty-row">Nothing urgent — good day to get ahead on outreach.</div>'
+            }
+          </div>
+
+          <div class="card section-card">
+            <div class="section-card-header"><h3>Overdue Tasks</h3></div>
+            ${
+              b.overdue_tasks.length
+                ? b.overdue_tasks.map((t) => `<div class="list-row"><span>${t.title}</span><span style="color:var(--ink-500); font-size:12px;">${t.client_name}</span></div>`).join("")
+                : '<div class="empty-row">Nothing overdue.</div>'
+            }
+          </div>
+        </div>
+
+        <div>
+          <div class="card section-card">
+            <div class="section-card-header">
+              <h3 id="cal-month-label"></h3>
+              <a href="/app/calendar.html" class="view-all">Full →</a>
+            </div>
+            <div class="mini-cal-grid" id="mini-cal"></div>
+            <div id="today-events-list"></div>
+          </div>
+
+          <div class="card section-card">
+            <div class="section-card-header">
+              <h3>✉️ New Messages</h3>
+              <a href="/app/inbox.html" class="view-all">View all →</a>
+            </div>
+            ${
+              b.recent_messages.length
+                ? b.recent_messages
+                    .map(
+                      (m) => `
+              <div class="msg-row">
+                <div class="msg-icon">${CHANNEL_ICONS[m.channel] || "•"}</div>
+                <div class="msg-body">
+                  <div class="msg-from"><span class="msg-dot"></span>${m.from_address}</div>
+                  <div class="msg-preview">${m.subject || m.preview}</div>
+                  ${m.compliance_flagged ? '<span class="msg-flag">flagged</span>' : ""}
+                </div>
+              </div>`
+                    )
+                    .join("")
+                : '<div class="empty-row">No new messages.</div>'
+            }
+          </div>
+
+          <div class="card section-card">
+            <div class="section-card-header"><h3>🔴 Hot Leads</h3></div>
+            ${
+              b.hot_leads.length
+                ? b.hot_leads.map((c) => `<div class="list-row"><a href="/app/client-detail.html?id=${c.id}">${c.name}</a><span style="color:var(--ink-500); font-size:12px;">${c.budget_max ? "$" + c.budget_max.toLocaleString() : ""}</span></div>`).join("")
+                : '<div class="empty-row">No hot leads flagged right now.</div>'
+            }
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("refresh-btn").addEventListener("click", refresh);
+    document.getElementById("history-btn").addEventListener("click", async () => {
+      await systemAlert("Briefing history isn't built yet — each briefing is generated fresh from live data rather than stored. Worth adding if you want to look back at past mornings.");
+    });
+
+    loadMiniCalendar(b.todays_events);
+  }
+
+  async function loadMiniCalendar(todaysEvents) {
+    const today = new Date();
+    document.getElementById("cal-month-label").textContent = today.toLocaleDateString([], { month: "long", year: "numeric" });
+
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const monthEvents = await api.listCalendarEvents(start.toISOString(), end.toISOString());
+
+    document.getElementById("mini-cal").innerHTML = buildMiniCalendar(monthEvents, todaysEvents);
+
+    const eventsList = document.getElementById("today-events-list");
+    eventsList.innerHTML = todaysEvents.length
+      ? todaysEvents.map((e) => `<div class="mini-cal-event-row"><span>${e.title}</span><span style="color:var(--ink-500);">${new Date(e.start_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>`).join("")
+      : `<div class="mini-cal-event-row" style="color:var(--ink-500);">Nothing scheduled today</div>`;
+  }
+
+  load();
+</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Alerts — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .filter-row { display: flex; gap: 8px; margin-bottom: 22px; }
+  .filter-chip { padding: 8px 16px; border-radius: 99px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--olive-200); color: var(--ink-700); }
+  .filter-chip.active { background: var(--olive-800); color: #fff; border-color: var(--olive-800); }
+
+  .event-card { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border: 1px solid var(--olive-200); border-radius: 12px; margin-bottom: 10px; background: #fff; max-width: 720px; }
+  .event-card.unread { border-left: 3px solid var(--gold-500); }
+  .severity-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .severity-dot.critical { background: var(--danger); }
+  .severity-dot.warning { background: var(--gold-500); }
+  .severity-dot.info { background: var(--olive-500); }
+
+  .event-body { flex: 1; }
+  .event-headline { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .event-detail { font-size: 13px; color: var(--ink-700); line-height: 1.5; margin-bottom: 6px; }
+  .event-time { font-size: 11.5px; color: var(--ink-500); }
+  .event-mark-read { font-size: 12px; padding: 6px 12px; }
+
+  .empty-state { padding: 60px 20px; text-align: center; color: var(--ink-500); font-size: 14px; max-width: 720px; }
+
+  .rules-section { max-width: 720px; margin-top: 40px; }
+  .rule-card { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border: 1px solid var(--olive-200); border-radius: 10px; margin-bottom: 8px; background: #fff; font-size: 13px; }
+  .rule-form { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .rule-form select, .rule-form input { padding: 9px 11px; border: 1px solid var(--olive-200); border-radius: 7px; font-size: 13px; }
+  .rule-form input { width: 120px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="alerts"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Alerts</div>
+      <div class="page-sub">Price drops, new listing matches, long days-on-market, and compliance flags — everything Athena thinks you should know about, in one place.</div>
+
+      <div class="filter-row">
+        <div class="filter-chip active" data-filter="all">All</div>
+        <div class="filter-chip" data-filter="unread">Unread</div>
+        <div class="filter-chip" data-filter="compliance_flag">Compliance</div>
+      </div>
+
+      <div id="events-container"></div>
+
+      <div class="rules-section">
+        <h3 style="font-size:16px; margin-bottom:12px;">Alert Rules</h3>
+        <div class="rule-form">
+          <select id="new-rule-type">
+            <option value="price_drop_pct">Price drop %</option>
+            <option value="long_dom">Long days-on-market</option>
+            <option value="new_listing_match">New listing matches a client</option>
+          </select>
+          <input type="number" id="new-rule-threshold" placeholder="Threshold (e.g. 5)" value="5" />
+          <button class="btn btn-primary" id="new-rule-btn">Add rule</button>
+        </div>
+        <div id="rules-container"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  let allEvents = [];
+  let currentFilter = "all";
+
+  function timeAgo(dateStr) {
+    const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  }
+
+  async function loadEvents() {
+    allEvents = await api.listAlertEvents(false);
+    render();
+  }
+
+  function render() {
+    const container = document.getElementById("events-container");
+    let filtered = allEvents;
+    if (currentFilter === "unread") filtered = allEvents.filter((e) => !e.is_read);
+    if (currentFilter === "compliance_flag") filtered = allEvents.filter((e) => e.headline.toLowerCase().includes("compliance"));
+
+    if (!filtered.length) {
+      container.innerHTML = `<div class="empty-state">No alerts here. Athena will surface price drops, listing matches, and compliance flags as they happen.</div>`;
+      return;
+    }
+
+    container.innerHTML = filtered
+      .map(
+        (e) => `
+      <div class="event-card ${e.is_read ? "" : "unread"}">
+        <div class="severity-dot ${e.severity || "info"}"></div>
+        <div class="event-body">
+          <div class="event-headline">${e.headline}</div>
+          ${e.detail ? `<div class="event-detail">${e.detail}</div>` : ""}
+          <div class="event-time">${timeAgo(e.created_at)}</div>
+        </div>
+        ${!e.is_read ? `<button class="btn btn-outline event-mark-read" data-id="${e.id}">Mark read</button>` : ""}
+      </div>`
+      )
+      .join("");
+
+    container.querySelectorAll("[data-id]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        await api.markAlertRead(btn.dataset.id);
+        await loadEvents();
+      });
+    });
+  }
+
+  document.querySelectorAll(".filter-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".filter-chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      currentFilter = chip.dataset.filter;
+      render();
+    });
+  });
+
+  loadEvents();
+
+  const RULE_LABELS = {
+    price_drop_pct: (r) => `Price drop ≥ ${r.params?.threshold_pct ?? "?"}%`,
+    long_dom: (r) => `Days on market ≥ ${r.params?.dom_days ?? "?"} days`,
+    new_listing_match: (r) => `New listing matches a client (min score ${r.params?.min_match_score ?? 70})`,
+    compliance_flag: () => "System: compliance flag on any outbound message",
+  };
+
+  async function loadRules() {
+    const rules = await api.listAlertRules();
+    const container = document.getElementById("rules-container");
+    if (!rules.length) {
+      container.innerHTML = `<div style="font-size:13px; color:var(--ink-500);">No custom rules yet. Compliance alerts are always on regardless.</div>`;
+      return;
+    }
+    container.innerHTML = rules
+      .map(
+        (r) => `
+      <div class="rule-card">
+        <span>${(RULE_LABELS[r.rule_type] || (() => r.rule_type))(r)}</span>
+        <span style="color:${r.is_active ? "var(--success)" : "var(--ink-500)"}; font-size:11.5px; font-weight:700; text-transform:uppercase;">${r.is_active ? "active" : "inactive"}</span>
+      </div>`
+      )
+      .join("");
+  }
+
+  document.getElementById("new-rule-btn").addEventListener("click", async () => {
+    const ruleType = document.getElementById("new-rule-type").value;
+    const threshold = parseFloat(document.getElementById("new-rule-threshold").value) || 5;
+
+    const paramsByType = {
+      price_drop_pct: { threshold_pct: threshold },
+      long_dom: { dom_days: threshold },
+      new_listing_match: { min_match_score: threshold },
+    };
+
+    const btn = document.getElementById("new-rule-btn");
+    btn.disabled = true;
+    try {
+      await api.createAlertRule({ rule_type: ruleType, params: paramsByType[ruleType] || {} });
+      await loadRules();
+    } catch (e) {
+      await systemAlert(e.message);
+    }
+    btn.disabled = false;
+  });
+
+  loadRules();
+</script>
+</body>
+</html>

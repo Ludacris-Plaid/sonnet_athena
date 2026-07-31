@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Properties — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .import-toolbar { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+  .import-toolbar select, .import-toolbar input { padding: 10px 12px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13.5px; }
+  .import-toolbar input[type="text"] { width: 160px; }
+  .source-note { font-size: 12px; color: var(--ink-500); margin-bottom: 20px; max-width: 640px; }
+  .source-note.unconfigured { color: var(--danger); }
+
+  .prop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  .prop-card { border-radius: 12px; overflow: hidden; cursor: pointer; background: #fff; border: 1px solid var(--olive-200); transition: transform 0.15s, box-shadow 0.15s; }
+  .prop-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(36,31,24,0.1); }
+  .prop-thumb { width: 100%; height: 160px; object-fit: cover; background: var(--cream-dim); display: block; }
+  .prop-card-body { padding: 14px 16px; }
+  .prop-price { font-family: var(--font-display); font-size: 19px; color: var(--gold-600); }
+  .prop-addr { font-size: 13.5px; font-weight: 600; margin: 3px 0; }
+  .prop-meta { font-size: 12px; color: var(--ink-500); }
+  .compliance-badge { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; padding:3px 8px; border-radius:99px; margin-top:6px; }
+  .compliance-badge.high { background:#fbe9e5; color:var(--danger); }
+  .compliance-badge.caution { background:var(--gold-100); color:var(--gold-600); }
+
+  /* Modal */
+  .prop-modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(36,31,24,0.55); align-items: flex-start; justify-content: center; z-index: 60; overflow-y: auto; padding: 30px 16px; }
+  .prop-modal-backdrop.open { display: flex; }
+  .prop-modal { background: #fff; border-radius: 16px; width: 900px; max-width: 100%; overflow: hidden; }
+  .prop-modal-close { position: absolute; top: 44px; right: calc(50% - 450px + 16px); background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 50%; width: 34px; height: 34px; cursor: pointer; font-size: 16px; z-index: 61; }
+
+  .gallery-main { width: 100%; height: 340px; object-fit: cover; background: var(--cream-dim); }
+  .gallery-thumbs { display: flex; gap: 6px; padding: 10px 24px; overflow-x: auto; }
+  .gallery-thumbs img { width: 70px; height: 52px; object-fit: cover; border-radius: 6px; cursor: pointer; opacity: 0.6; }
+  .gallery-thumbs img.active { opacity: 1; outline: 2px solid var(--gold-500); }
+
+  .modal-body { padding: 24px; }
+  .modal-header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+  .modal-price { font-family: var(--font-display); font-size: 28px; color: var(--gold-600); }
+  .modal-addr { font-size: 15px; font-weight: 600; margin-top: 2px; }
+
+  .spec-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+  .spec-item { background: var(--cream-dim); border-radius: 8px; padding: 10px; text-align: center; }
+  .spec-value { font-weight: 700; font-size: 15px; }
+  .spec-label { font-size: 10.5px; color: var(--ink-500); text-transform: uppercase; }
+
+  .modal-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--cream-dim); margin-bottom: 18px; }
+  .modal-tab { padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--ink-500); border-bottom: 2px solid transparent; }
+  .modal-tab.active { color: var(--gold-600); border-bottom-color: var(--gold-500); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .agent-card { display: flex; justify-content: space-between; align-items: center; background: var(--cream-dim); border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; }
+  .agent-name { font-weight: 700; font-size: 14px; }
+  .agent-meta { font-size: 12px; color: var(--ink-500); }
+  .purpose-select { padding: 9px 11px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 13px; margin-right: 8px; }
+  .draft-box { background: var(--cream-dim); border-radius: 10px; padding: 14px 16px; font-size: 13.5px; line-height: 1.6; margin-top: 12px; white-space: pre-wrap; }
+
+  .mini-calc-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .mini-calc-row input { padding: 8px 10px; border: 1px solid var(--olive-200); border-radius: 7px; font-size: 12.5px; }
+  .mini-calc-result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+  .mini-calc-stat { background: var(--cream-dim); border-radius: 8px; padding: 12px; text-align: center; }
+  .mini-calc-stat .value { font-family: var(--font-display); font-size: 18px; }
+
+  .comp-row { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--cream-dim); font-size: 13px; }
+  .comp-row:first-child { border-top: none; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="properties"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Properties</div>
+      <div class="page-sub">Choose where to import from — MLS/RESO, Zillow via Bridge Interactive, ATTOM, a CSV export, or demo data for testing.</div>
+
+      <div class="import-toolbar">
+        <select id="source-select"></select>
+        <input type="text" id="city-input" placeholder="City" />
+        <input type="text" id="state-input" placeholder="State/Prov" />
+        <button class="btn btn-primary" id="ingest-btn">Import listings</button>
+        <label class="btn btn-outline" style="cursor:pointer;">
+          Upload CSV<input type="file" id="csv-input" accept=".csv" style="display:none;" />
+        </label>
+      </div>
+      <div class="source-note" id="source-note"></div>
+
+      <div class="import-toolbar" style="margin-top:4px;">
+        <select id="filter-min-price">
+          <option value="">Any price</option>
+          <option value="100000">$100k+</option>
+          <option value="250000">$250k+</option>
+          <option value="500000">$500k+</option>
+          <option value="750000">$750k+</option>
+          <option value="1000000">$1M+</option>
+        </select>
+        <select id="filter-max-price">
+          <option value="">No max</option>
+          <option value="250000">Under $250k</option>
+          <option value="500000">Under $500k</option>
+          <option value="750000">Under $750k</option>
+          <option value="1000000">Under $1M</option>
+        </select>
+        <select id="filter-beds">
+          <option value="">Any beds</option>
+          <option value="1">1+ bed</option>
+          <option value="2">2+ beds</option>
+          <option value="3">3+ beds</option>
+          <option value="4">4+ beds</option>
+          <option value="5">5+ beds</option>
+        </select>
+        <select id="filter-baths">
+          <option value="">Any baths</option>
+          <option value="1">1+ bath</option>
+          <option value="2">2+ baths</option>
+          <option value="3">3+ baths</option>
+        </select>
+        <select id="filter-min-sqft">
+          <option value="">Any size</option>
+          <option value="1000">1000+ sqft</option>
+          <option value="1500">1500+ sqft</option>
+          <option value="2000">2000+ sqft</option>
+          <option value="3000">3000+ sqft</option>
+        </select>
+        <select id="filter-type">
+          <option value="">Any type</option>
+          <option value="single_family">Single Family</option>
+          <option value="condo">Condo</option>
+          <option value="townhouse">Townhouse</option>
+          <option value="multi_family">Multi-Family</option>
+        </select>
+        <button class="btn btn-outline" id="clear-filters-btn" style="font-size:12.5px;">Clear filters</button>
+        <span id="filter-count" style="font-size:12px; color:var(--ink-500); margin-left:auto;"></span>
+      </div>
+
+      <div class="prop-grid" id="prop-grid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="prop-modal-backdrop" id="prop-modal-backdrop">
+  <button class="prop-modal-close" id="modal-close-btn">✕</button>
+  <div class="prop-modal" id="prop-modal-content"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/athena-spinner.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  let properties = [];
+  let currentProperty = null;
+
+  async function loadSources() {
+    const sources = await api.getPropertySources();
+    const select = document.getElementById("source-select");
+    select.innerHTML = sources.map((s) => `<option value="${s.key}" ${!s.configured ? "data-unconfigured" : ""}>${s.label}${!s.configured ? " (not configured)" : ""}</option>`).join("");
+    updateSourceNote(sources);
+    select.addEventListener("change", () => updateSourceNote(sources));
+  }
+
+  function updateSourceNote(sources) {
+    const key = document.getElementById("source-select").value;
+    const source = sources.find((s) => s.key === key);
+    const note = document.getElementById("source-note");
+    if (key === "demo") {
+      note.innerHTML = `⚠️ <strong>This is fake, synthetic test data — not real listings.</strong> Every property imported with this source is clearly tagged "DEMO DATA" on its card. Switch to a real source above once you have API credentials configured.`;
+      note.className = "source-note unconfigured";
+    } else {
+      note.textContent = source.description;
+      note.className = `source-note ${!source.configured ? "unconfigured" : ""}`;
+    }
+  }
+
+  async function loadProperties() {
+    properties = await api.listProperties();
+    renderGrid();
+  }
+
+  function getFilteredProperties() {
+    const minPrice = parseFloat(document.getElementById("filter-min-price").value) || 0;
+    const maxPrice = parseFloat(document.getElementById("filter-max-price").value) || Infinity;
+    const minBeds = parseInt(document.getElementById("filter-beds").value) || 0;
+    const minBaths = parseFloat(document.getElementById("filter-baths").value) || 0;
+    const minSqft = parseInt(document.getElementById("filter-min-sqft").value) || 0;
+    const type = document.getElementById("filter-type").value;
+
+    return properties.filter((p) => {
+      if ((p.price || 0) < minPrice || (p.price || 0) > maxPrice) return false;
+      if ((p.beds || 0) < minBeds) return false;
+      if ((p.baths || 0) < minBaths) return false;
+      if ((p.sqft || 0) < minSqft) return false;
+      if (type && p.property_type !== type) return false;
+      return true;
+    });
+  }
+
+  function renderGrid() {
+    const filtered = getFilteredProperties();
+    document.getElementById("filter-count").textContent = `${filtered.length} of ${properties.length} properties`;
+    const grid = document.getElementById("prop-grid");
+    if (!properties.length) {
+      grid.innerHTML = `<div class="card" style="grid-column:1/-1; padding:40px; text-align:center; color:var(--ink-500);">No properties yet. Choose a source above and import listings.</div>`;
+      return;
+    }
+    if (!filtered.length) {
+      grid.innerHTML = `<div class="card" style="grid-column:1/-1; padding:40px; text-align:center; color:var(--ink-500);">No properties match these filters — try widening your search.</div>`;
+      return;
+    }
+    grid.innerHTML = filtered
+      .map(
+        (p) => `
+      <div class="prop-card" data-id="${p.id}">
+        <div style="position:relative;">
+          <img class="prop-thumb" src="${p.thumbnail_url || "https://placehold.co/400x300/f2ecdf/8a8577?text=No+Photo"}" loading="lazy" />
+          <span style="position:absolute; top:8px; left:8px; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; padding:3px 8px; border-radius:99px; ${p.source === "demo" ? "background:var(--danger); color:#fff;" : "background:rgba(36,31,24,0.75); color:#fff;"}">
+            ${p.source === "demo" ? "⚠ DEMO DATA — NOT REAL" : "Source: " + p.source}
+          </span>
+        </div>
+        <div class="prop-card-body">
+          <div class="prop-price">$${p.price ? p.price.toLocaleString() : "—"}</div>
+          <div class="prop-addr">${p.address}</div>
+          <div class="prop-meta">${p.beds || "—"}bd · ${p.baths || "—"}ba · ${(p.sqft || 0).toLocaleString()}sqft · ${p.city}</div>
+          ${p.compliance_risk && p.compliance_risk !== "low" ? `<div class="compliance-badge ${p.compliance_risk}">⚠️ ${p.compliance_risk} risk</div>` : ""}
+        </div>
+      </div>`
+      )
+      .join("");
+
+    grid.querySelectorAll(".prop-card").forEach((card) => {
+      card.addEventListener("click", () => openModal(card.dataset.id));
+    });
+  }
+
+  document.getElementById("ingest-btn").addEventListener("click", async () => {
+    const city = document.getElementById("city-input").value.trim();
+    const state = document.getElementById("state-input").value.trim();
+    const source = document.getElementById("source-select").value;
+    if (!city || !state) return await systemAlert("Enter both city and state/province.");
+
+    const btn = document.getElementById("ingest-btn");
+    btn.disabled = true;
+    btn.textContent = "Importing…";
+    try {
+      await api.ingestListings(city, state, source);
+      await loadProperties();
+    } catch (e) {
+      await systemAlert(e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = "Import listings";
+  });
+
+  document.getElementById("csv-input").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const result = await api.importPropertyCsv(file);
+      await systemAlert(`Imported ${result.created} properties, skipped ${result.skipped} rows without an address.`);
+      await loadProperties();
+    } catch (err) {
+      await systemAlert(err.message);
+    }
+    e.target.value = "";
+  });
+
+  // ---------- Modal ----------
+
+  async function openModal(id) {
+    currentProperty = properties.find((p) => p.id === id);
+    if (!currentProperty) return;
+
+    renderModal(currentProperty);
+    document.getElementById("prop-modal-backdrop").classList.add("open");
+  }
+
+  function renderModal(p) {
+    const photos = p.photos && p.photos.length ? p.photos : [p.thumbnail_url || "https://placehold.co/800x600/f2ecdf/8a8577?text=No+Photo"];
+
+    document.getElementById("prop-modal-content").innerHTML = `
+      <img class="gallery-main" id="gallery-main" src="${photos[0]}" />
+      <div class="gallery-thumbs">
+        ${photos.map((url, i) => `<img src="${url}" class="${i === 0 ? "active" : ""}" data-src="${url}" />`).join("")}
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-header-row">
+          <div>
+            <div class="modal-price" id="price-display">$${p.price ? p.price.toLocaleString() : "—"}</div>
+            <div class="modal-addr">${p.address}, ${p.city}, ${p.state}</div>
+            <div style="font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; margin-top:4px; ${p.source === "demo" ? "color:var(--danger);" : "color:var(--ink-500);"}">
+              ${p.source === "demo" ? "⚠ DEMO DATA — NOT A REAL LISTING" : "Source: " + p.source}
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            ${p.compliance_risk && p.compliance_risk !== "low" ? `<div class="compliance-badge ${p.compliance_risk}">⚠️ ${p.compliance_risk} fair housing risk</div>` : ""}
+            <button class="btn btn-outline" id="edit-property-btn" style="font-size:12px; padding:7px 12px;">Edit</button>
+            <button class="btn btn-outline" id="delete-property-btn" style="font-size:12px; padding:7px 12px; color:var(--danger); border-color:var(--danger);">Delete</button>
+          </div>
+        </div>
+
+        <div id="edit-form" style="display:none; background:var(--cream-dim); border-radius:10px; padding:16px; margin-bottom:18px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+            <input type="text" id="edit-address" placeholder="Address" value="${p.address}" style="padding:8px 10px; border:1px solid var(--olive-200); border-radius:7px;" />
+            <input type="number" id="edit-price" placeholder="Price" value="${p.price || ""}" style="padding:8px 10px; border:1px solid var(--olive-200); border-radius:7px;" />
+            <input type="number" id="edit-beds" placeholder="Beds" value="${p.beds || ""}" style="padding:8px 10px; border:1px solid var(--olive-200); border-radius:7px;" />
+            <input type="number" id="edit-baths" placeholder="Baths" value="${p.baths || ""}" step="0.5" style="padding:8px 10px; border:1px solid var(--olive-200); border-radius:7px;" />
+            <input type="number" id="edit-sqft" placeholder="Sqft" value="${p.sqft || ""}" style="padding:8px 10px; border:1px solid var(--olive-200); border-radius:7px;" />
+            <select id="edit-status" style="padding:8px 10px; border:1px solid var(--olive-200); border-radius:7px;">
+              <option value="active" ${p.status === "active" ? "selected" : ""}>Active</option>
+              <option value="pending" ${p.status === "pending" ? "selected" : ""}>Pending</option>
+              <option value="sold" ${p.status === "sold" ? "selected" : ""}>Sold</option>
+              <option value="off_market" ${p.status === "off_market" ? "selected" : ""}>Off Market</option>
+            </select>
+          </div>
+          <textarea id="edit-description" placeholder="Description" style="width:100%; padding:8px 10px; border:1px solid var(--olive-200); border-radius:7px; min-height:60px; margin-bottom:10px;">${p.description || ""}</textarea>
+          <button class="btn btn-primary" id="save-edit-btn" style="font-size:12.5px;">Save changes</button>
+          <button class="btn btn-outline" id="cancel-edit-btn" style="font-size:12.5px;">Cancel</button>
+        </div>
+
+        <div class="spec-row">
+          <div class="spec-item"><div class="spec-value">${p.beds || "—"}</div><div class="spec-label">Beds</div></div>
+          <div class="spec-item"><div class="spec-value">${p.baths || "—"}</div><div class="spec-label">Baths</div></div>
+          <div class="spec-item"><div class="spec-value">${(p.sqft || 0).toLocaleString()}</div><div class="spec-label">Sqft</div></div>
+          <div class="spec-item"><div class="spec-value">${p.garage_spaces ?? "—"}</div><div class="spec-label">Garage</div></div>
+          <div class="spec-item"><div class="spec-value">${p.year_built || "—"}</div><div class="spec-label">Built</div></div>
+        </div>
+
+        <div class="modal-tabs">
+          <div class="modal-tab active" data-tab="cma">CMA &amp; Comps</div>
+          <div class="modal-tab" data-tab="calc">Investment Calc</div>
+          <div class="modal-tab" data-tab="agent">Listing Agent</div>
+          <div class="modal-tab" data-tab="details">Details</div>
+        </div>
+
+        <div class="tab-panel active" id="tab-cma">
+          <button class="btn btn-outline" id="run-cma-btn" style="margin-bottom:14px;">Run CMA analysis</button>
+          <div id="cma-result" style="font-size:13.5px; line-height:1.6; margin-bottom:16px;"></div>
+          <div id="comps-list"></div>
+        </div>
+
+        <div class="tab-panel" id="tab-calc">
+          <div class="mini-calc-row">
+            <input type="number" id="calc-rent" placeholder="Monthly rent estimate" value="${p.price ? Math.round(p.price * 0.006) : 2000}" />
+            <input type="number" id="calc-down" placeholder="Down payment %" value="20" />
+            <input type="number" id="calc-rate" placeholder="Interest rate %" value="7" step="0.1" />
+            <input type="number" id="calc-hold" placeholder="Hold years" value="5" />
+          </div>
+          <button class="btn btn-outline" id="run-calc-btn">Run the numbers</button>
+          <div class="mini-calc-result" id="calc-result"></div>
+        </div>
+
+        <div class="tab-panel" id="tab-agent">
+          <div class="agent-card">
+            <div>
+              <div class="agent-name">${p.listing_agent_name || "No agent on file"}</div>
+              <div class="agent-meta">${p.listing_brokerage || ""} ${p.listing_agent_email ? "· " + p.listing_agent_email : ""} ${p.listing_agent_phone ? "· " + p.listing_agent_phone : ""}</div>
+            </div>
+          </div>
+          <select class="purpose-select" id="purpose-select">
+            <option value="request_showing">Request a showing</option>
+            <option value="ask_question">Ask a question</option>
+            <option value="submit_interest">Submit buyer interest</option>
+          </select>
+          <button class="btn btn-primary" id="draft-message-btn">Draft message</button>
+          <div id="draft-container"></div>
+        </div>
+
+        <div class="tab-panel" id="tab-details">
+          <div class="comp-row"><span>MLS #</span><span>${p.mls_number || "—"}</span></div>
+          <div class="comp-row"><span>Lot size</span><span>${p.lot_size_sqft ? p.lot_size_sqft.toLocaleString() + " sqft" : "—"}</span></div>
+          <div class="comp-row"><span>Days on market</span><span>${p.days_on_market ?? "—"}</span></div>
+          <div class="comp-row"><span>Source</span><span>${p.source}</span></div>
+          <div style="margin-top:14px; font-size:13.5px; line-height:1.6; color:var(--ink-700);">${p.description || "No description available."}</div>
+          <button class="btn btn-outline" id="deep-compliance-btn" style="margin-top:16px;">Run full fair housing review</button>
+          <div id="deep-compliance-result" style="margin-top:12px; font-size:13px; line-height:1.6;"></div>
+        </div>
+      </div>
+    `;
+
+    wireModalEvents(p);
+  }
+
+  function wireModalEvents(p) {
+    document.querySelectorAll(".gallery-thumbs img").forEach((thumb) => {
+      thumb.addEventListener("click", () => {
+        document.getElementById("gallery-main").src = thumb.dataset.src;
+        document.querySelectorAll(".gallery-thumbs img").forEach((t) => t.classList.remove("active"));
+        thumb.classList.add("active");
+      });
+    });
+
+    document.querySelectorAll(".modal-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".modal-tab").forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(`tab-${tab.dataset.tab}`).classList.add("active");
+      });
+    });
+
+    document.getElementById("run-cma-btn").addEventListener("click", async () => {
+      const btn = document.getElementById("run-cma-btn");
+      btn.style.display = "none";
+      const cmaResultEl = document.getElementById("cma-result");
+      const spinner = createAthenaSpinner(cmaResultEl, { size: "sm" });
+      spinner.start();
+      try {
+        const [analysis, comps] = await Promise.all([api.analyzeProperty(p.id), api.getComps(p.id)]);
+        spinner.stop();
+        cmaResultEl.innerHTML = analysis.estimated_value
+          ? `<strong>Estimate: $${analysis.estimated_value.toLocaleString()}</strong> (range $${analysis.value_range_low.toLocaleString()}–$${analysis.value_range_high.toLocaleString()})<br/><br/>${analysis.ai_summary}`
+          : analysis.ai_summary;
+        document.getElementById("comps-list").innerHTML = comps.length
+          ? comps.map((c) => `<div class="comp-row"><span>Comp (similarity ${(c.similarity_score * 100).toFixed(0)}%)</span><span>${c.price_per_sqft_delta != null ? (c.price_per_sqft_delta > 0 ? "+" : "") + "$" + c.price_per_sqft_delta.toFixed(0) + "/sqft" : ""}</span></div>`).join("")
+          : '<div style="color:var(--ink-500); font-size:13px;">No comparable properties found yet.</div>';
+      } catch (e) {
+        spinner.stop();
+        cmaResultEl.textContent = "Error: " + e.message;
+      }
+      btn.style.display = "inline-flex";
+      btn.disabled = false;
+      btn.textContent = "Run CMA analysis";
+    });
+
+    document.getElementById("run-calc-btn").addEventListener("click", async () => {
+      const assumptions = {
+        purchase_price: p.price || 0,
+        monthly_rent: parseFloat(document.getElementById("calc-rent").value) || 0,
+        down_payment_pct: parseFloat(document.getElementById("calc-down").value) || 20,
+        interest_rate_pct: parseFloat(document.getElementById("calc-rate").value) || 7,
+        hold_years: parseInt(document.getElementById("calc-hold").value) || 5,
+      };
+      try {
+        const result = await api.simulatePortfolio(assumptions);
+        document.getElementById("calc-result").innerHTML = `
+          <div class="mini-calc-stat"><div class="value">${result.year_1_cap_rate_pct?.toFixed(1) ?? "—"}%</div><div class="spec-label">Cap Rate</div></div>
+          <div class="mini-calc-stat"><div class="value">${result.year_1_cash_on_cash_pct?.toFixed(1) ?? "—"}%</div><div class="spec-label">Cash-on-Cash</div></div>
+          <div class="mini-calc-stat"><div class="value">$${result.monthly_mortgage_payment.toLocaleString()}</div><div class="spec-label">Monthly Payment</div></div>
+        `;
+      } catch (e) {
+        await systemAlert(e.message);
+      }
+    });
+
+    document.getElementById("draft-message-btn").addEventListener("click", async () => {
+      const btn = document.getElementById("draft-message-btn");
+      btn.style.display = "none";
+      const draftContainer = document.getElementById("draft-container");
+      const spinner = createAthenaSpinner(draftContainer, { size: "sm" });
+      spinner.start();
+      try {
+        const purpose = document.getElementById("purpose-select").value;
+        const result = await api.draftAgentMessage(p.id, purpose);
+        spinner.stop();
+        draftContainer.innerHTML = `
+          <div class="draft-box" id="draft-text" contenteditable="true">${result.draft}</div>
+          <button class="btn btn-primary" id="send-message-btn" style="margin-top:10px;">Send to ${result.to_name || "agent"}</button>
+        `;
+        document.getElementById("send-message-btn").addEventListener("click", async () => {
+          const body = document.getElementById("draft-text").innerText;
+          await api.sendAgentMessage(p.id, body);
+          await systemAlert("Sent.");
+        });
+      } catch (e) {
+        spinner.stop();
+        await systemAlert(e.message);
+      }
+      btn.style.display = "inline-flex";
+      btn.disabled = false;
+      btn.textContent = "Draft message";
+    });
+
+    document.getElementById("deep-compliance-btn").addEventListener("click", async () => {
+      const btn2 = document.getElementById("deep-compliance-btn");
+      btn2.style.display = "none";
+      const complianceResultEl = document.getElementById("deep-compliance-result");
+      const spinner2 = createAthenaSpinner(complianceResultEl, { size: "sm" });
+      spinner2.start();
+      try {
+        const result = await api.propertyComplianceCheck(p.id);
+        spinner2.stop();
+        if (result.note) {
+          complianceResultEl.textContent = result.note;
+        } else {
+          complianceResultEl.innerHTML = `<strong>Overall risk: ${result.overall_risk}</strong><br/>` +
+            (result.flags.length
+              ? result.flags.map((f) => `• "${f.phrase || f.protected_class}": ${f.explanation}`).join("<br/>")
+              : "No issues found.");
+        }
+      } catch (e) {
+        spinner2.stop();
+        await systemAlert(e.message);
+      }
+      btn2.style.display = "inline-flex";
+      btn2.disabled = false;
+      btn2.textContent = "Run full fair housing review";
+    });
+
+    document.getElementById("edit-property-btn").addEventListener("click", () => {
+      document.getElementById("edit-form").style.display = "block";
+    });
+    document.getElementById("cancel-edit-btn").addEventListener("click", () => {
+      document.getElementById("edit-form").style.display = "none";
+    });
+    document.getElementById("save-edit-btn").addEventListener("click", async () => {
+      const btn3 = document.getElementById("save-edit-btn");
+      btn3.disabled = true;
+      btn3.textContent = "Saving…";
+      try {
+        const updated = await api.updateProperty(p.id, {
+          address: document.getElementById("edit-address").value,
+          price: parseFloat(document.getElementById("edit-price").value) || null,
+          beds: parseInt(document.getElementById("edit-beds").value) || null,
+          baths: parseFloat(document.getElementById("edit-baths").value) || null,
+          sqft: parseInt(document.getElementById("edit-sqft").value) || null,
+          status: document.getElementById("edit-status").value,
+          description: document.getElementById("edit-description").value,
+        });
+        currentProperty = updated;
+        const idx = properties.findIndex((x) => x.id === p.id);
+        if (idx >= 0) properties[idx] = updated;
+        renderModal(updated);
+        renderGrid();
+      } catch (e) {
+        await systemAlert(e.message);
+      }
+      btn3.disabled = false;
+      btn3.textContent = "Save changes";
+    });
+
+    document.getElementById("delete-property-btn").addEventListener("click", async () => {
+      if (!await systemConfirm(`Permanently delete ${p.address}? This can't be undone.`)) return;
+      try {
+        await api.deleteProperty(p.id);
+        document.getElementById("prop-modal-backdrop").classList.remove("open");
+        properties = properties.filter((x) => x.id !== p.id);
+        renderGrid();
+      } catch (e) {
+        await systemAlert(e.message);
+      }
+    });
+  }
+
+  document.getElementById("modal-close-btn").addEventListener("click", () => {
+    document.getElementById("prop-modal-backdrop").classList.remove("open");
+  });
+
+  ["filter-min-price", "filter-max-price", "filter-beds", "filter-baths", "filter-min-sqft", "filter-type"].forEach((id) => {
+    document.getElementById(id).addEventListener("change", renderGrid);
+  });
+  document.getElementById("clear-filters-btn").addEventListener("click", () => {
+    ["filter-min-price", "filter-max-price", "filter-beds", "filter-baths", "filter-min-sqft", "filter-type"].forEach((id) => {
+      document.getElementById(id).value = "";
+    });
+    renderGrid();
+  });
+
+  loadSources();
+  loadProperties();
+</script>
+</body>
+</html>

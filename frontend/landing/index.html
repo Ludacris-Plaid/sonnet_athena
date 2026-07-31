@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RealtyAI — Athena, Your AI Real Estate Partner</title>
+<meta name="description" content="Athena is the AI partner real estate agents actually trust — grounded in your real data, earning autonomy over time, built to give you your time back." />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #faf6ef; --cream-dim: #f2ecdf; --olive-900: #2f3826; --olive-800: #3f4a32; --olive-700: #536242;
+    --olive-500: #7c8c64; --olive-200: #d7dcc9; --gold-600: #a97f2e; --gold-500: #c99a3e; --gold-400: #e0b862;
+    --gold-100: #f7ecd2; --ink-900: #241f18; --ink-700: #4a4438; --ink-500: #837b6b; --success: #4f7a4a;
+    --font-display: "Fraunces", Georgia, serif; --font-body: "Inter", -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font-body); color: var(--ink-900); background: var(--cream); overflow-x: hidden; }
+  a { color: inherit; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+  /* --- Animated glassmorphic hero --- */
+  .hero {
+    position: relative; min-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+    background: linear-gradient(160deg, var(--olive-900) 0%, #24301c 55%, #1c2416 100%);
+    color: #fff;
+  }
+  .hero-orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.35; animation: float 14s ease-in-out infinite; }
+  .hero-orb.o1 { width: 420px; height: 420px; background: var(--gold-500); top: -120px; left: -100px; animation-delay: 0s; }
+  .hero-orb.o2 { width: 340px; height: 340px; background: #6b8fb5; bottom: -140px; right: -80px; animation-delay: -5s; }
+  .hero-orb.o3 { width: 260px; height: 260px; background: var(--olive-500); top: 40%; right: 15%; animation-delay: -9s; }
+  @keyframes float { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(30px,-40px) scale(1.08); } }
+
+  .nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; position: relative; z-index: 5; }
+  .nav-brand { font-family: var(--font-display); font-size: 19px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .nav-links { display: flex; gap: 28px; font-size: 13.5px; font-weight: 500; }
+  .nav-links a { text-decoration: none; opacity: 0.75; transition: opacity 0.15s; }
+  .nav-links a:hover { opacity: 1; }
+  .nav-cta { display: flex; gap: 10px; }
+
+  .glass-btn {
+    padding: 10px 20px; border-radius: 10px; font-size: 13.5px; font-weight: 600; text-decoration: none;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.08); color: #fff; transition: all 0.2s;
+  }
+  .glass-btn:hover { background: rgba(255,255,255,0.16); }
+  .btn-solid { background: var(--gold-500); color: var(--ink-900); border: none; font-weight: 700; }
+  .btn-solid:hover { background: var(--gold-400); }
+
+  .hero-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 0 60px; position: relative; z-index: 5; }
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--gold-400); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+    padding: 8px 16px; border-radius: 99px; margin-bottom: 26px; backdrop-filter: blur(10px);
+  }
+  .hero-title { font-family: var(--font-display); font-size: clamp(38px, 6vw, 68px); font-weight: 700; line-height: 1.05; max-width: 900px; margin-bottom: 22px; }
+  .hero-title .accent { color: var(--gold-400); font-style: italic; }
+  .hero-sub { font-size: 18px; color: rgba(244,240,230,0.78); max-width: 620px; line-height: 1.6; margin-bottom: 36px; }
+  .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+  .hero-ctas .glass-btn, .hero-ctas .btn-solid { padding: 14px 26px; font-size: 14.5px; }
+  .hero-note { font-size: 12.5px; color: rgba(244,240,230,0.55); }
+
+  /* Floating mock UI card, glassmorphism */
+  .hero-mock {
+    position: relative; z-index: 5; margin: 0 auto; max-width: 760px; width: 90%;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); border-radius: 18px;
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 22px 26px; box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+    animation: rise 1s var(--ease-out, cubic-bezier(0.16,1,0.3,1)) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+  .mock-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13px; }
+  .mock-row:first-child { border-top: none; }
+  .mock-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; background: rgba(201,154,62,0.25); color: var(--gold-400); }
+
+  /* --- Sections --- */
+  section { padding: 90px 0; }
+  .section-eyebrow { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gold-600); margin-bottom: 12px; text-align: center; }
+  .section-title { font-family: var(--font-display); font-size: clamp(28px, 4vw, 42px); text-align: center; max-width: 720px; margin: 0 auto 16px; }
+  .section-sub { text-align: center; color: var(--ink-500); font-size: 16px; max-width: 620px; margin: 0 auto 56px; line-height: 1.6; }
+
+  .stat-strip { background: var(--olive-900); color: #fff; padding: 50px 0; }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; text-align: center; }
+  .stat-num { font-family: var(--font-display); font-size: 40px; color: var(--gold-400); margin-bottom: 6px; }
+  .stat-label { font-size: 13.5px; color: rgba(244,240,230,0.7); line-height: 1.5; }
+
+  .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .feature-card {
+    background: #fff; border: 1px solid var(--olive-200); border-radius: 16px; padding: 28px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 50px rgba(36,31,24,0.1); }
+  .feature-icon { font-size: 26px; margin-bottom: 14px; }
+  .feature-card h3 { font-size: 16.5px; margin-bottom: 8px; }
+  .feature-card p { font-size: 13.5px; color: var(--ink-500); line-height: 1.6; margin: 0; }
+
+  /* Trust ladder section — the differentiator */
+  .trust-section { background: linear-gradient(160deg, var(--cream-dim), var(--cream)); }
+  .trust-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+  .trust-copy h2 { font-family: var(--font-display); font-size: 34px; margin-bottom: 18px; }
+  .trust-copy p { font-size: 15px; color: var(--ink-700); line-height: 1.7; margin-bottom: 16px; }
+  .trust-levels { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+  .trust-level-row { display: flex; align-items: center; gap: 12px; font-size: 13.5px; }
+  .trust-level-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  .trust-visual {
+    background: linear-gradient(135deg, var(--olive-900), var(--olive-800)); border-radius: 20px; padding: 40px;
+    display: flex; align-items: center; justify-content: center; position: relative; min-height: 320px;
+  }
+  .gauge-ring { position: relative; width: 220px; height: 220px; }
+  .gauge-ring svg { transform: rotate(-90deg); }
+  .gauge-track { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 14; }
+  .gauge-fill { fill: none; stroke: var(--gold-500); stroke-width: 14; stroke-linecap: round; stroke-dasharray: 565; stroke-dashoffset: 565; animation: fillgauge 2.4s 0.5s var(--ease-out, cubic-bezier(0.16,1,0.3,1)) forwards; }
+  @keyframes fillgauge { to { stroke-dashoffset: 155; } }
+  .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; }
+  .gauge-center .num { font-family: var(--font-display); font-size: 42px; }
+  .gauge-center .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(244,240,230,0.6); }
+
+  /* Integrations strip */
+  .integrations-strip { text-align: center; }
+  .integration-pills { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 30px; }
+  .integration-pill { background: #fff; border: 1px solid var(--olive-200); border-radius: 99px; padding: 10px 20px; font-size: 13.5px; font-weight: 600; }
+
+  /* Pricing — dimmed, with the free-trial CTA front and center */
+  .pricing-section { background: var(--cream-dim); }
+  .trial-banner {
+    max-width: 640px; margin: 0 auto 50px; background: linear-gradient(135deg, var(--gold-100), #fff);
+    border: 1px solid var(--gold-400); border-radius: 16px; padding: 28px 32px; text-align: center;
+  }
+  .trial-banner h3 { font-family: var(--font-display); font-size: 22px; margin-bottom: 8px; }
+  .trial-banner p { font-size: 14px; color: var(--ink-700); margin-bottom: 18px; }
+
+  .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; opacity: 0.55; filter: grayscale(0.3); pointer-events: none; }
+  .price-card { background: #fff; border: 1px solid var(--olive-200); border-radius: 16px; padding: 26px; }
+  .price-card h4 { font-size: 15px; margin-bottom: 4px; }
+  .price-amount { font-family: var(--font-display); font-size: 30px; margin-bottom: 14px; }
+  .price-amount span { font-size: 13px; color: var(--ink-500); font-family: var(--font-body); }
+  .price-card ul { list-style: none; padding: 0; margin: 0; font-size: 12.5px; color: var(--ink-500); line-height: 2; }
+  .pricing-note { text-align: center; font-size: 12.5px; color: var(--ink-500); margin-top: 18px; }
+
+  .final-cta { background: var(--olive-900); color: #fff; text-align: center; padding: 90px 0; }
+  .final-cta h2 { font-family: var(--font-display); font-size: 36px; margin-bottom: 16px; }
+  .final-cta p { font-size: 15px; color: rgba(244,240,230,0.7); margin-bottom: 30px; }
+
+  footer { padding: 40px 0 50px; display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--ink-500); flex-wrap: wrap; gap: 12px; }
+  .footer-admin-link { color: var(--ink-500); opacity: 0.5; text-decoration: none; font-size: 11px; }
+  .footer-admin-link:hover { opacity: 1; }
+
+  @media (max-width: 860px) {
+    .trust-layout, .feature-grid, .stat-grid, .pricing-grid { grid-template-columns: 1fr; }
+    .nav-links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-orb o1"></div>
+  <div class="hero-orb o2"></div>
+  <div class="hero-orb o3"></div>
+
+  <div class="wrap nav">
+    <div class="nav-brand">🦉 Athena</div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#trust">Trust with Athena</a>
+      <a href="#integrations">Integrations</a>
+      <a href="#pricing">Pricing</a>
+    </div>
+    <div class="nav-cta">
+      <a href="/app/login.html" class="glass-btn">Log in</a>
+      <a href="/app/signup.html" class="glass-btn btn-solid">Start free trial</a>
+    </div>
+  </div>
+
+  <div class="wrap hero-content">
+    <div class="hero-eyebrow">✨ Now accepting new agents — free for your first week</div>
+    <h1 class="hero-title">Your time back.<br/>Your <span class="accent">AI partner</span>, earned trust at a time.</h1>
+    <p class="hero-sub">Athena drafts your replies, runs your numbers, remembers every client conversation forever, and earns the right to act on her own — the more she proves she gets it right, the more you hand her.</p>
+    <div class="hero-ctas">
+      <a href="/app/signup.html" class="glass-btn btn-solid">Start your free week →</a>
+      <a href="#features" class="glass-btn">See how it works</a>
+    </div>
+    <div class="hero-note">Invite code required during early access · No credit card to start</div>
+  </div>
+
+  <div class="hero-mock wrap">
+    <div class="mock-row"><span>☀️ Daily Briefing</span><span class="mock-badge">2 High Priority</span></div>
+    <div class="mock-row"><span>💬 "Catch me up on the Chen listing"</span><span style="color:rgba(244,240,230,0.5);">Athena — instant</span></div>
+    <div class="mock-row"><span>🤝 Trust with Athena</span><span class="mock-badge">Full Autonomy · SMS</span></div>
+  </div>
+</div>
+
+<div class="stat-strip">
+  <div class="wrap stat-grid">
+    <div><div class="stat-num">21x</div><div class="stat-label">more likely to qualify a lead when you respond in 5 minutes vs. 30</div></div>
+    <div><div class="stat-num">15hrs</div><div class="stat-label">the average agent's actual lead response time today</div></div>
+    <div><div class="stat-num">0</div><div class="stat-label">generic AI answers — every reply is grounded in your real data, not a guess</div></div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-eyebrow">Why agents switch</div>
+    <h2 class="section-title">Most "AI CRMs" bolt a chatbot onto a database. Athena is built the other way around.</h2>
+    <p class="section-sub">Industry reviewers keep saying the same thing: check whether the AI actually works from your real data, or just sounds generic. Every answer Athena gives is grounded in your actual clients, listings, and history — never invented.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card"><div class="feature-icon">🦉</div><h3>One Athena, everywhere</h3><p>Chat, voice, Slack, SMS — one continuous relationship with full memory, not five disconnected bots.</p></div>
+      <div class="feature-card"><div class="feature-icon">🧠</div><h3>She remembers everything</h3><p>Every conversation, permanently, searchable — like a diary that never resets unless you ask it to.</p></div>
+      <div class="feature-card"><div class="feature-icon">👥</div><h3>A real CRM underneath</h3><p>Pipeline, lead scoring, tasks — and a timeline that fills itself from every email, text, and call. No manual logging.</p></div>
+      <div class="feature-card"><div class="feature-icon">⚖️</div><h3>Fair housing built in</h3><p>Every draft, listing, and piece of content is automatically screened before it goes out — not an afterthought.</p></div>
+      <div class="feature-card"><div class="feature-icon">📊</div><h3>Real numbers, not guesses</h3><p>Cap rate, cash-on-cash, CMA — deterministic math behind every recommendation, shown to you plainly.</p></div>
+      <div class="feature-card"><div class="feature-icon">🔍</div><h3>Search everything at once</h3><p>Clients, properties, documents, past conversations, and the web — one box, one answer.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="trust" class="trust-section">
+  <div class="wrap trust-layout">
+    <div class="trust-copy">
+      <div class="section-eyebrow" style="text-align:left;">The differentiator nobody else has</div>
+      <h2>Trust with Athena</h2>
+      <p>Other platforms just turn AI automation on. Athena starts every relationship draft-only — she suggests, you approve. Every time you send one of her drafts unedited, she earns a little more trust. Cross a real threshold, and she starts sending routine replies on her own.</p>
+      <p>You always see exactly where she stands — a real animated gauge, real levels, real badges, nothing hidden. It's the opposite of a black box.</p>
+      <div class="trust-levels">
+        <div class="trust-level-row"><span class="trust-level-dot" style="background:#8a8577;"></span> New Partnership — draft-only, you approve everything</div>
+        <div class="trust-level-row"><span class="trust-level-dot" style="background:#c99a3e;"></span> Limited Trust Earned — she starts handling routine replies</div>
+        <div class="trust-level-row"><span class="trust-level-dot" style="background:#4f7a4a;"></span> Full Autonomy — earned, never assumed</div>
+      </div>
+    </div>
+    <div class="trust-visual">
+      <div class="gauge-ring">
+        <svg width="220" height="220" viewBox="0 0 220 220">
+          <circle class="gauge-track" cx="110" cy="110" r="90" />
+          <circle class="gauge-fill" cx="110" cy="110" r="90" />
+        </svg>
+        <div class="gauge-center"><div class="num">73</div><div class="lbl">Trust Score</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="integrations">
+  <div class="wrap integrations-strip">
+    <div class="section-eyebrow">Plays well with what you already use</div>
+    <h2 class="section-title">Bring your existing setup — don't start over</h2>
+    <p class="section-sub">Already on Follow Up Boss or HubSpot? Sync directly. Using Gmail, Outlook, or Slack? Connect them in minutes. Every listing source, real and legitimate — MLS/RESO, Zillow via Bridge Interactive, ATTOM Data.</p>
+    <div class="integration-pills">
+      <div class="integration-pill">Follow Up Boss</div>
+      <div class="integration-pill">HubSpot</div>
+      <div class="integration-pill">Gmail &amp; Outlook</div>
+      <div class="integration-pill">Google &amp; Outlook Calendar</div>
+      <div class="integration-pill">Slack</div>
+      <div class="integration-pill">Twilio SMS &amp; Voice</div>
+      <div class="integration-pill">MLS / RESO</div>
+      <div class="integration-pill">Zillow (Bridge Interactive)</div>
+      <div class="integration-pill">ATTOM Data</div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing" class="pricing-section">
+  <div class="wrap">
+    <div class="trial-banner">
+      <h3>🎉 Free for your first week — invite code required</h3>
+      <p>We're in early access and picking our first agents carefully. If you have an invite code, your first week is completely free, no credit card required.</p>
+      <a href="/app/signup.html" class="glass-btn btn-solid" style="background:var(--gold-500); color:var(--ink-900); display:inline-block;">Redeem your invite code →</a>
+    </div>
+
+    <div class="section-eyebrow">Plans (opening up soon)</div>
+    <h2 class="section-title">Pricing</h2>
+    <p class="section-sub">Full pricing opens up after early access — here's the shape of it.</p>
+
+    <div class="pricing-grid">
+      <div class="price-card"><h4>Light</h4><div class="price-amount">$100 <span>/mo</span></div><ul><li>Core CRM &amp; chat</li><li>Basic listings</li><li>Email support</li></ul></div>
+      <div class="price-card"><h4>Medium</h4><div class="price-amount">$250 <span>/mo</span></div><ul><li>Everything in Light</li><li>Voice &amp; integrations</li><li>Trust ladder</li></ul></div>
+      <div class="price-card"><h4>Heavy</h4><div class="price-amount">$500 <span>/mo</span></div><ul><li>Everything in Medium</li><li>Full autonomy features</li><li>Priority support</li></ul></div>
+    </div>
+    <div class="pricing-note">Pricing shown for reference — not open for self-serve signup during early access.</div>
+  </div>
+</section>
+
+<div class="final-cta">
+  <div class="wrap">
+    <h2>Get your time back.</h2>
+    <p>Free for your first week with an invite code. No credit card required.</p>
+    <a href="/app/signup.html" class="glass-btn btn-solid" style="display:inline-block;">Start your free week →</a>
+  </div>
+</div>
+
+<footer class="wrap">
+  <div>🦉 Athena — RealtyAI © 2026</div>
+  <a href="/admin/login.html" class="footer-admin-link">Admin</a>
+</footer>
+
+</body>
+</html>

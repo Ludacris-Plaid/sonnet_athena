@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="icon" type="image/svg+xml" href="../shared/assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Content Studio — RealtyAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css" />
+<link rel="stylesheet" href="../shared/app-shell.css" />
+<style>
+  .studio-form { max-width: 720px; margin-bottom: 28px; }
+  select#property-select { width: 100%; padding: 12px 14px; border: 1px solid var(--olive-200); border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+
+  .type-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+  .type-check { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--olive-200); border-radius: 8px; cursor: pointer; font-size: 13.5px; }
+  .type-check.checked { border-color: var(--gold-400); background: var(--gold-100); }
+  .type-check input { accent-color: var(--gold-500); }
+
+  .content-card { border: 1px solid var(--olive-200); border-radius: 12px; padding: 20px; margin-bottom: 16px; max-width: 720px; background: #fff; }
+  .content-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .content-label { font-weight: 700; font-size: 14px; }
+  .content-body { font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; color: var(--ink-700); margin-bottom: 12px; }
+  .compliance-warning { font-size: 12px; font-weight: 600; color: var(--danger); background: #fbe9e5; padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; }
+  .copy-btn { font-size: 12px; padding: 6px 12px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar-mount" data-active="content"></aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-search">🔍 Ask about clients, listings, tasks, regulations…</div>
+      <div class="topbar-user"><div class="avatar-chip">A</div><div class="name">Test Agent</div></div>
+    </div>
+
+    <div class="page-body">
+      <div class="page-title display">Content Studio</div>
+      <div class="page-sub">Generate marketing content for a listing — MLS copy, social posts, email blasts, flyers — all screened for fair housing issues automatically.</div>
+
+      <div class="studio-form">
+        <select id="property-select"><option value="">Select a property…</option></select>
+        <div class="type-grid" id="type-grid"></div>
+        <button class="btn btn-primary" id="generate-btn">Generate content</button>
+      </div>
+
+      <div id="results"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/supabase-client.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/athena-spinner.js"></script>
+<script src="../shared/sidebar.js"></script>
+<script src="../shared/system-modal.js"></script>
+<script>
+  auth.requireAuth();
+
+  async function loadProperties() {
+    const props = await api.listProperties();
+    const select = document.getElementById("property-select");
+    select.innerHTML =
+      `<option value="">Select a property…</option>` +
+      props.map((p) => `<option value="${p.id}">${p.address} — $${p.price ? p.price.toLocaleString() : "—"}</option>`).join("");
+  }
+
+  async function loadContentTypes() {
+    const types = await api.getContentTypes();
+    const grid = document.getElementById("type-grid");
+    grid.innerHTML = types
+      .map(
+        (t, i) => `
+      <label class="type-check" id="type-${t.key}">
+        <input type="checkbox" value="${t.key}" ${i < 2 ? "checked" : ""} />
+        ${t.label}
+      </label>`
+      )
+      .join("");
+
+    grid.querySelectorAll(".type-check").forEach((label) => {
+      const checkbox = label.querySelector("input");
+      const sync = () => label.classList.toggle("checked", checkbox.checked);
+      checkbox.addEventListener("change", sync);
+      sync();
+    });
+  }
+
+  document.getElementById("generate-btn").addEventListener("click", async () => {
+    const propertyId = document.getElementById("property-select").value;
+    if (!propertyId) return await systemAlert("Select a property first.");
+
+    const contentTypes = Array.from(document.querySelectorAll('#type-grid input:checked')).map((cb) => cb.value);
+    if (!contentTypes.length) return await systemAlert("Select at least one content type.");
+
+    const btn = document.getElementById("generate-btn");
+    btn.disabled = true;
+    btn.textContent = "Generating…";
+    const resultsEl = document.getElementById("results");
+    const spinner = createAthenaSpinner(resultsEl, { size: "md", messages: true });
+    spinner.start();
+
+    try {
+      const results = await api.generateContent(propertyId, contentTypes);
+      spinner.stop();
+      renderResults(results);
+    } catch (e) {
+      spinner.stop();
+      await systemAlert(e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = "Generate content";
+  });
+
+  function renderResults(results) {
+    const container = document.getElementById("results");
+    container.innerHTML = results
+      .map((r, i) => {
+        if (r.error) return `<div class="content-card"><div class="content-label">${r.content_type}</div><div class="content-body">Error: ${r.error}</div></div>`;
+        const warning =
+          r.compliance_risk && r.compliance_risk !== "low"
+            ? `<div class="compliance-warning">⚠️ ${r.compliance_risk} fair housing risk: ${r.compliance_flags.map((f) => f.phrase).join(", ")} — review before using.</div>`
+            : "";
+        return `
+        <div class="content-card">
+          <div class="content-card-header">
+            <div class="content-label">${r.label}</div>
+            <button class="btn btn-outline copy-btn" data-idx="${i}">Copy</button>
+          </div>
+          ${warning}
+          <div class="content-body" id="content-text-${i}">${r.content}</div>
+        </div>`;
+      })
+      .join("");
+
+    container.querySelectorAll(".copy-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const text = document.getElementById(`content-text-${btn.dataset.idx}`).innerText;
+        navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        setTimeout(() => (btn.textContent = "Copy"), 1500);
+      });
+    });
+  }
+
+  loadProperties();
+  loadContentTypes();
+</script>
+</body>
+</html>
