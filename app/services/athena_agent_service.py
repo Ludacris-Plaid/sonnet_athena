@@ -359,7 +359,14 @@ def run_athena_chat(db: Session, user: User, conversation_id: str, user_message:
     for m in history[-30:]:  # cap context window growth on very long-running conversations
         entry = {"role": m.role.value, "content": m.content}
         if m.tool_calls:
-            entry["tool_calls"] = m.tool_calls
+            # DeepSeek rejects tool_calls that carry an "index" field on
+            # replay (it's only valid in a live streaming response). Strip it.
+            cleaned = []
+            for tc in m.tool_calls:
+                tc = dict(tc)
+                tc.pop("index", None)
+                cleaned.append(tc)
+            entry["tool_calls"] = cleaned
         if m.tool_call_id:
             entry["tool_call_id"] = m.tool_call_id
         full_messages.append(entry)
