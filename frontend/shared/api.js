@@ -48,6 +48,19 @@ async function apiRequest(path, { method = "GET", body, auth: needsAuth = true }
     throw new Error("Session expired");
   }
 
+  if (resp.status === 403) {
+    const errBody = await resp.json().catch(() => ({}));
+    // Stale/foreign Supabase session whose "sub" doesn't map to a RealtyAI
+    // profile (e.g. an old account that was deleted, or a token minted
+    // before signup completed). Clear it and force a fresh login instead
+    // of looping forever against a dead session.
+    if (String(errBody.detail || "").includes("No RealtyAI profile")) {
+      await auth.clearToken();
+      window.location.href = "/app/login.html";
+      throw new Error("Please log in again");
+    }
+  }
+
   if (!resp.ok) {
     const errBody = await resp.json().catch(() => ({}));
     throw new Error(errBody.detail || `Request failed: ${resp.status}`);
