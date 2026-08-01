@@ -52,6 +52,15 @@
 <script src="../shared/supabase-client.js"></script>
 <script src="../shared/api.js"></script>
 <script>
+  // Wipe any stale Supabase session (from a deleted/old account) so the
+  // fresh sign-in below can't be shadowed by a cached dead token.
+  (function clearStaleSession() {
+    try {
+      Object.keys(localStorage).filter((k) => k.indexOf("sb-") === 0 || k.indexOf("supabase") === 0).forEach((k) => localStorage.removeItem(k));
+      Object.keys(sessionStorage).filter((k) => k.indexOf("sb-") === 0 || k.indexOf("supabase") === 0).forEach((k) => sessionStorage.removeItem(k));
+    } catch (e) {}
+  })();
+
   document.getElementById("login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const errorEl = document.getElementById("error-msg");
